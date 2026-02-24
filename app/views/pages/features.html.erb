@@ -1,0 +1,78 @@
+<section class="py-20 px-6 bg-surface">
+  <div class="container-lg mx-auto">
+    <div class="text-center mb-16">
+      <h1 class="text-5xl font-bold gradient-text mb-6">Features</h1>
+      <p class="text-xl text-secondary max-w-2xl mx-auto">
+        Explore the powerful features that make RL BOX the ultimate solution for organization and collaboration.
+      </p>
+    </div>
+
+    <!-- Feature Grid -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+      <div class="feature-card p-8 rounded-xl">
+        <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mb-4">
+          <%= lucide_icon "folder", class: "w-6 h-6 text-surface" %>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-3">Smart Folders</h3>
+        <p class="text-secondary">
+          Automatically organize your items with intelligent folder structures and custom rules.
+        </p>
+      </div>
+
+      <div class="feature-card p-8 rounded-xl">
+        <div class="w-12 h-12 bg-gradient-to-br from-secondary to-primary rounded-lg flex items-center justify-center mb-4">
+          <%= lucide_icon "tag", class: "w-6 h-6 text-surface" %>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-3">Advanced Tagging</h3>
+        <p class="text-secondary">
+          Tag and categorize items with flexible, multi-level tagging system for quick access.
+        </p>
+      </div>
+
+      <div class="feature-card p-8 rounded-xl">
+        <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mb-4">
+          <%= lucide_icon "search", class: "w-6 h-6 text-surface" %>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-3">Instant Search</h3>
+        <p class="text-secondary">
+          Find anything instantly with powerful full-text search and smart filters.
+        </p>
+      </div>
+
+      <div class="feature-card p-8 rounded-xl">
+        <div class="w-12 h-12 bg-gradient-to-br from-warning to-danger rounded-lg flex items-center justify-center mb-4">
+          <%= lucide_icon "workflow", class: "w-6 h-6 text-surface" %>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-3">Smart Workflows</h3>
+        <p class="text-secondary">
+          Create automated workflows that trigger actions based on custom conditions.
+        </p>
+      </div>
+
+      <div class="feature-card p-8 rounded-xl">
+        <div class="w-12 h-12 bg-gradient-to-br from-info to-success rounded-lg flex items-center justify-center mb-4">
+          <%= lucide_icon "share-2", class: "w-6 h-6 text-surface" %>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-3">Easy Sharing</h3>
+        <p class="text-secondary">
+          Share boxes and folders with team members or external collaborators securely.
+        </p>
+      </div>
+
+      <div class="feature-card p-8 rounded-xl">
+        <div class="w-12 h-12 bg-gradient-to-br from-success to-info rounded-lg flex items-center justify-center mb-4">
+          <%= lucide_icon "shield-check", class: "w-6 h-6 text-surface" %>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-3">Enterprise Security</h3>
+        <p class="text-secondary">
+          Fine-grained permissions and role-based access control for enterprise security.
+        </p>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="text-center">
+      <%= link_to "Get Started Free", sign_up_path, class: "btn-gradient px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl inline-block" %>
+    </div>
+  </div>
+</section>

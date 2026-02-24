@@ -1,0 +1,193 @@
+<div class="container-lg py-12">
+  <!-- Page Header with Gradient -->
+  <div class="mb-12 text-center">
+    <h1 class="text-5xl font-bold gradient-text mb-4">Profile Center</h1>
+    <p class="text-xl text-secondary">Manage your account and security settings</p>
+  </div>
+
+  <!-- User Information Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+    <!-- Basic Information Card -->
+    <div class="feature-card p-8 rounded-xl">
+      <h2 class="text-2xl font-bold mb-6 flex items-center text-primary">
+        <%= lucide_icon "user-circle", class: "w-7 h-7 mr-3 text-primary" %>
+        Basic Information
+      </h2>
+
+      <div class="space-y-6">
+        <div>
+          <label class="form-label text-sm font-semibold text-muted">
+            Name
+          </label>
+          <div class="text-xl text-primary font-semibold mt-1"><%= @user.name %></div>
+        </div>
+
+        <div>
+          <label class="form-label text-sm font-semibold text-muted">
+            Email
+          </label>
+          <div class="text-xl text-primary font-semibold mt-1"><%= @user.email %></div>
+        </div>
+
+        <div>
+          <label class="form-label text-sm font-semibold text-muted">
+            Account Status
+          </label>
+          <div class="flex items-center mt-2">
+            <% if @user.verified? %>
+              <div class="badge-success flex items-center text-sm px-4 py-2">
+                <%= lucide_icon "check-circle", class: "w-4 h-4 mr-2" %>
+                Verified
+              </div>
+            <% else %>
+              <div class="badge-warning flex items-center text-sm px-4 py-2">
+                <%= lucide_icon "alert-triangle", class: "w-4 h-4 mr-2" %>
+                Unverified
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label text-sm font-semibold text-muted">
+            Login Method
+          </label>
+          <div class="mt-2">
+            <% if @user.password_digest.present? %>
+              <div class="badge-neutral text-sm px-4 py-2">
+                <%= lucide_icon "mail", class: "w-4 h-4 inline mr-2" %>
+                Email & Password
+              </div>
+            <% else %>
+              <div class="badge-primary text-sm px-4 py-2">
+                <%= lucide_icon "key", class: "w-4 h-4 inline mr-2" %>
+                OAuth Provider
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label text-sm font-semibold text-muted">
+            Member Since
+          </label>
+          <div class="text-lg text-primary mt-1">
+            <%= @user.created_at.strftime("%B %d, %Y") %>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-8">
+        <%= link_to edit_profile_path, class: "btn-gradient w-full text-center py-3 rounded-xl font-semibold" do %>
+          <%= lucide_icon "edit", class: "w-5 h-5 inline mr-2" %>
+          Edit Profile
+        <% end %>
+      </div>
+    </div>
+
+    <!-- Security Settings Card -->
+    <div class="feature-card p-8 rounded-xl">
+      <h2 class="text-2xl font-bold mb-6 flex items-center text-primary">
+        <%= lucide_icon "shield", class: "w-7 h-7 mr-3 text-primary" %>
+        Security Settings
+      </h2>
+
+      <% unless @user.verified? or @user.email_was_generated? %>
+        <div class="alert-info mb-6 rounded-xl">
+          <div class="flex items-start">
+            <%= lucide_icon "info", class: "w-5 h-5 text-info mr-3 flex-shrink-0 mt-0.5" %>
+            <div class="flex-1">
+              <p class="text-sm font-semibold mb-2">Email Verification Required</p>
+              <p class="text-sm mb-3">Please verify your email address to secure your account and access all features.</p>
+              <%= button_to "Resend Verification Email", identity_email_verification_path, method: :post, class: "btn-primary btn-sm" %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <div class="space-y-6">
+        <div class="p-6 bg-surface-elevated rounded-xl">
+          <div class="flex items-center justify-between mb-2">
+            <%= lucide_icon "lock", class: "w-6 h-6 text-secondary" %>
+            <label class="text-lg font-semibold text-primary">
+              Password
+            </label>
+          </div>
+          <% if @user.password_digest.present? %>
+            <p class="text-sm text-secondary mb-4">Keep your password secure and up to date</p>
+            <%= link_to edit_password_profile_path, class: "btn-outline-primary btn-sm w-full" do %>
+              <%= lucide_icon "key", class: "w-4 h-4 inline mr-2" %>
+              Change Password
+            <% end %>
+          <% else %>
+            <p class="text-sm text-muted mb-4">Password management not available for OAuth accounts</p>
+            <button class="btn-ghost btn-sm w-full opacity-50 cursor-not-allowed" disabled>
+              <%= lucide_icon "key", class: "w-4 h-4 inline mr-2" %>
+              Change Password
+            </button>
+          <% end %>
+        </div>
+
+        <div class="p-6 bg-surface-elevated rounded-xl">
+          <div class="flex items-center justify-between mb-2">
+            <%= lucide_icon "smartphone", class: "w-6 h-6 text-secondary" %>
+            <label class="text-lg font-semibold text-primary">
+              Sessions
+            </label>
+          </div>
+          <p class="text-sm text-secondary mb-4">Manage your active sessions across all devices</p>
+          <%= link_to devices_session_path, class: "btn-outline-primary btn-sm w-full" do %>
+            <%= lucide_icon "monitor", class: "w-4 h-4 inline mr-2" %>
+            Manage Sessions
+          <% end %>
+        </div>
+
+        <% if @user.verified? %>
+          <div class="p-6 bg-gradient-to-br from-success/10 to-info/5 rounded-xl border border-success/20">
+            <div class="flex items-center space-x-3">
+              <%= lucide_icon "shield-check", class: "w-8 h-8 text-success" %>
+              <div>
+                <p class="font-semibold text-primary">Account Secured</p>
+                <p class="text-sm text-secondary">Your account is verified and protected</p>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Stats Card (using real data) -->
+  <div class="max-w-5xl mx-auto mt-8">
+    <div class="feature-card p-8 rounded-xl">
+      <h2 class="text-2xl font-bold mb-6 flex items-center text-primary">
+        <%= lucide_icon "activity", class: "w-7 h-7 mr-3 text-primary" %>
+        Account Activity
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="text-center p-6 bg-gradient-to-br from-primary/10 to-secondary/5 rounded-xl">
+          <div class="text-4xl font-bold gradient-text mb-2"><%= @user.sessions.count %></div>
+          <p class="text-secondary font-semibold">Active Sessions</p>
+        </div>
+        <div class="text-center p-6 bg-gradient-to-br from-info/10 to-success/5 rounded-xl">
+          <div class="text-4xl font-bold gradient-text mb-2"><%= (@user.created_at.to_date..Date.today).count %></div>
+          <p class="text-secondary font-semibold">Days as Member</p>
+        </div>
+        <div class="text-center p-6 bg-gradient-to-br from-warning/10 to-danger/5 rounded-xl">
+          <div class="text-4xl font-bold gradient-text mb-2">
+            <%= @user.verified? ? "✓" : "!" %>
+          </div>
+          <p class="text-secondary font-semibold">Account Status</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sign Out Button -->
+  <div class="mt-12 text-center">
+    <%= link_to sign_out_path, method: :delete, class: "btn-ghost", data: { turbo_method: :delete, turbo_confirm: "Are you sure you want to sign out?" } do %>
+      <%= lucide_icon "log-out", class: "w-5 h-5 inline mr-2" %>
+      Sign Out
+    <% end %>
+  </div>
+</div>

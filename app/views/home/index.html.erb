@@ -1,0 +1,257 @@
+<div>
+<section data-testid="home-first-section" class="pt-28 pb-20 px-6 hero-gradient text-surface min-h-screen flex items-center">
+  <div class="container-xl mx-auto">
+    <!-- Hero Text -->
+    <div class="text-center mb-16">
+      <h1 class="text-6xl font-bold mb-6 animate-gradient bg-gradient-to-r from-surface via-surface-elevated to-surface bg-clip-text text-transparent bg-[length:200%_auto]">
+        Your Ultimate Box Solution
+      </h1>
+      <p class="text-xl text-surface/90 max-w-2xl mx-auto mb-8">
+        Experience the next generation of organization and storage. RL BOX brings innovation, simplicity, and style together in one powerful platform.
+      </p>
+      <div class="flex items-center justify-center space-x-4">
+        <%= link_to "Start Free Trial", sign_up_path, class: "btn-xl bg-surface text-primary hover:bg-surface-elevated px-8 py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all" %>
+        <%= link_to about_path, class: "btn-xl bg-surface/20 text-surface hover:bg-surface/30 px-8 py-4 rounded-xl font-semibold border-2 border-surface/40 backdrop-blur-sm transition-all" do %>
+          <%= lucide_icon "play-circle", class: "w-5 h-5 inline mr-2" %>
+          Learn More
+        <% end %>
+      </div>
+    </div>
+
+    <!-- Product Image in Stylized Frame -->
+    <div class="max-w-5xl mx-auto">
+      <div class="glass-card rounded-2xl p-4 shadow-2xl">
+        <div class="relative rounded-xl overflow-hidden aspect-video">
+          <img 
+            src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop" 
+            alt="RL BOX Dashboard" 
+            class="w-full h-full object-cover"
+          />
+          <!-- Decorative gradient overlay -->
+          <div class="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tabbed Feature Navigation -->
+<section id="features" class="py-20 px-6 bg-surface">
+  <div class="container-xl mx-auto">
+    <div class="text-center mb-12">
+      <h2 class="text-4xl font-bold text-primary mb-4 gradient-text">Powerful Features</h2>
+      <p class="text-lg text-secondary max-w-2xl mx-auto">
+        Discover everything RL BOX has to offer. From smart organization to seamless collaboration.
+      </p>
+    </div>
+
+    <!-- Tabs Controller -->
+    <div data-controller="tabs">
+      <!-- Tab Navigation -->
+      <div data-tabs-target="nav" class="flex justify-center space-x-4 mb-12">
+        <button 
+          data-tabs-target="tab"
+          data-action="click->tabs#switch" 
+          data-tabs-index-value="0"
+          class="px-6 py-3 rounded-lg font-semibold transition-all duration-300"
+        >
+          <%= lucide_icon "layers", class: "w-5 h-5 inline mr-2" %>
+          Organization
+        </button>
+        <button 
+          data-tabs-target="tab"
+          data-action="click->tabs#switch" 
+          data-tabs-index-value="1"
+          class="px-6 py-3 rounded-lg font-semibold transition-all duration-300"
+        >
+          <%= lucide_icon "zap", class: "w-5 h-5 inline mr-2" %>
+          Automation
+        </button>
+        <button 
+          data-tabs-target="tab"
+          data-action="click->tabs#switch" 
+          data-tabs-index-value="2"
+          class="px-6 py-3 rounded-lg font-semibold transition-all duration-300"
+        >
+          <%= lucide_icon "users", class: "w-5 h-5 inline mr-2" %>
+          Collaboration
+        </button>
+      </div>
+
+      <!-- Tab Panels -->
+      <div>
+        <!-- Panel 1: Organization -->
+        <div data-tabs-target="panel" class="grid md:grid-cols-3 gap-8">
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "folder", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Smart Folders</h3>
+            <p class="text-secondary">
+              Automatically organize your items with intelligent folder structures and custom rules.
+            </p>
+          </div>
+
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-secondary to-primary rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "tag", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Advanced Tagging</h3>
+            <p class="text-secondary">
+              Tag and categorize items with flexible, multi-level tagging system for quick access.
+            </p>
+          </div>
+
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "search", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Instant Search</h3>
+            <p class="text-secondary">
+              Find anything instantly with powerful full-text search and smart filters.
+            </p>
+          </div>
+        </div>
+
+        <!-- Panel 2: Automation -->
+        <div data-tabs-target="panel" class="hidden grid md:grid-cols-3 gap-8">
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-warning to-danger rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "workflow", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Smart Workflows</h3>
+            <p class="text-secondary">
+              Create automated workflows that trigger actions based on custom conditions.
+            </p>
+          </div>
+
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-danger to-warning rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "clock", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Scheduled Tasks</h3>
+            <p class="text-secondary">
+              Set up recurring tasks and reminders to keep your workflow running smoothly.
+            </p>
+          </div>
+
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-warning to-danger rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "bell", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Smart Notifications</h3>
+            <p class="text-secondary">
+              Get notified about important updates and changes automatically.
+            </p>
+          </div>
+        </div>
+
+        <!-- Panel 3: Collaboration -->
+        <div data-tabs-target="panel" class="hidden grid md:grid-cols-3 gap-8">
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-info to-success rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "share-2", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Easy Sharing</h3>
+            <p class="text-secondary">
+              Share boxes and folders with team members or external collaborators securely.
+            </p>
+          </div>
+
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-success to-info rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "message-circle", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Real-time Chat</h3>
+            <p class="text-secondary">
+              Discuss and collaborate with your team in real-time directly within boxes.
+            </p>
+          </div>
+
+          <div class="feature-card p-8 rounded-xl">
+            <div class="w-12 h-12 bg-gradient-to-br from-info to-success rounded-lg flex items-center justify-center mb-4">
+              <%= lucide_icon "shield-check", class: "w-6 h-6 text-surface" %>
+            </div>
+            <h3 class="text-xl font-bold text-primary mb-3">Access Control</h3>
+            <p class="text-secondary">
+              Fine-grained permissions and role-based access control for enterprise security.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA Card with Hover Lift -->
+<section class="py-20 px-6 bg-surface-elevated" data-controller="scroll-reveal">
+  <div class="container-lg mx-auto">
+    <div class="cta-card rounded-2xl p-12 card-gradient">
+      <div class="text-center">
+        <h2 class="text-4xl font-bold gradient-text mb-6">
+          Ready to Transform Your Workflow?
+        </h2>
+        <p class="text-xl text-secondary mb-8 max-w-2xl mx-auto">
+          Join thousands of users who have already discovered the power of RL BOX. Start your free trial today, no credit card required.
+        </p>
+        <div class="flex items-center justify-center space-x-4">
+          <%= link_to "Get Started Free", sign_up_path, class: "btn-gradient px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl" %>
+          <%= link_to "Contact Sales", about_path, class: "btn-outline-primary px-8 py-4 rounded-xl font-semibold text-lg" %>
+        </div>
+        
+        <!-- Trust Indicators -->
+        <div class="mt-12 flex items-center justify-center space-x-8 text-muted">
+          <div class="flex items-center space-x-2">
+            <%= lucide_icon "check-circle", class: "w-5 h-5 text-success" %>
+            <span>Free 14-day trial</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <%= lucide_icon "check-circle", class: "w-5 h-5 text-success" %>
+            <span>No credit card required</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <%= lucide_icon "check-circle", class: "w-5 h-5 text-success" %>
+            <span>Cancel anytime</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer with Fade-in -->
+<footer class="py-12 px-6 bg-surface border-t border-border" data-controller="scroll-reveal">
+  <div class="container-xl mx-auto">
+    <div class="text-center">
+      <!-- Logo -->
+      <div class="flex items-center justify-center space-x-2 mb-6">
+        <div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
+          <%= lucide_icon "box", class: "w-6 h-6 text-surface" %>
+        </div>
+        <span class="text-2xl font-bold gradient-text">RL BOX</span>
+      </div>
+
+      <!-- Social Icons -->
+      <div class="flex items-center justify-center space-x-6 mb-6">
+        <%= link_to "https://twitter.com", class: "w-10 h-10 rounded-lg bg-surface-elevated hover:bg-primary hover:text-surface text-secondary transition-all flex items-center justify-center", target: "_blank", rel: "noopener" do %>
+          <%= lucide_icon "twitter", class: "w-5 h-5" %>
+        <% end %>
+        <%= link_to "https://github.com", class: "w-10 h-10 rounded-lg bg-surface-elevated hover:bg-primary hover:text-surface text-secondary transition-all flex items-center justify-center", target: "_blank", rel: "noopener" do %>
+          <%= lucide_icon "github", class: "w-5 h-5" %>
+        <% end %>
+        <%= link_to "https://linkedin.com", class: "w-10 h-10 rounded-lg bg-surface-elevated hover:bg-primary hover:text-surface text-secondary transition-all flex items-center justify-center", target: "_blank", rel: "noopener" do %>
+          <%= lucide_icon "linkedin", class: "w-5 h-5" %>
+        <% end %>
+        <%= link_to "mailto:contact@rlbox.com", class: "w-10 h-10 rounded-lg bg-surface-elevated hover:bg-primary hover:text-surface text-secondary transition-all flex items-center justify-center" do %>
+          <%= lucide_icon "mail", class: "w-5 h-5" %>
+        <% end %>
+      </div>
+
+      <!-- Copyright -->
+      <p class="text-muted">
+        &copy; <%= Time.current.year %> RL BOX. All rights reserved.
+      </p>
+    </div>
+  </div>
+</footer>
+</div>
