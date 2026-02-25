@@ -28,6 +28,8 @@ Restarting project is unnecessary because Rails automatically hot-reloads code c
 - `config/application.yml`
 - `config/appname.txt`
 
+**CRITICAL: If you run `rails g authentication`, `rails g stripe_pay`, or `rails g llm`, you MUST run `touch tmp/restart.txt` at the END after ALL tasks are complete.**
+
 ## MANDATORY PROJECT WORKFLOW - FOLLOW EXACTLY IN THIS ORDER
 
 **STOP! Before creating ANY models or controllers, you MUST complete these steps first:**
@@ -124,8 +126,16 @@ When installing any new gem or npm packages, always specify a version you are mo
   - **Default values**: `field:type:default=value` (e.g., `status:string:default=draft`, `count:integer:default=0`)
   - **Serialize**: `field:text:serialize` (only for text/string; json/jsonb auto-handled)
 - **Protected names**: Cannot use `user`, `order`, `payment`, etc. (suggests alternatives)
+- ✅ **Auto-adds data_version**: Automatically adds `data_version:string:default='0':limit=50` to all business tables
 
-Use `rails generate model xxx` only when generating a single model (supports same enhanced syntax as above).
+Use `rails generate model xxx` only when generating a single model (supports same enhanced syntax as above, also auto-adds data_version).
+
+**⚠️ CRITICAL: data_version Field Management**
+- ✅ **ALWAYS use `rails g models` or `rails g model`** — Both generators auto-add `data_version:string:default='0':limit=50` to business tables
+- ✅ **System tables are excluded**: Administrator, Session, AdminOplog, ValidatorExecution, ActiveStorage* don't need data_version
+- ❌ **NEVER manually write CREATE TABLE migrations** — Use `rails g models` or `rails g model`
+- ❌ **NEVER use `rails g migration CreateXxx`** — Bypasses data_version auto-generation
+- Why: All business tables require data_version for DataVersionable session isolation
 
 Use `rails generate service xxx` to generate a service file, not generate by yourself.
 
@@ -178,11 +188,177 @@ Use FriendlyId (already configured) if need slug URLs. For user-facing content u
 
 Never write nested form.
 
+## Data Packs — Test/Validation Data Management
+
+**CRITICAL: Data Packs Loading Method**
+- **ONLY supported command**: `rake validator:reset_baseline`
+- **Location**: `app/validators/support/data_packs/` (NOT `db/seeds/`)
+- **Purpose**: Store complete baseline data (`data_version='0'`) for validators and testing
+- **Loading order**: Files loaded alphabetically — except `base.rb` loads first, `z_*.rb` loads last
+- **Pattern**: Use `insert_all` for batch operations, NOT `find_or_create_by!`
+
+**Golden Rule: ONE Business Module = ONE Data Pack File**
+
+**✅ CORRECT file structure:**
+```
+base.rb        # Foundation data (Users, core fixtures) — ONLY file that may use destroy_all
+posts.rb       # ALL post data
+comments.rb    # ALL comment data
+```
+
+**❌ WRONG — scattered files:**
+```
+posts.rb + posts_supplement.rb + posts_phase2_fields.rb   # Split into multiple files
+```
+
+**File Naming Convention:**
+- Main files: simple plural business name (`posts.rb`, `comments.rb`)
+- Supplement with loading dependency: use parent name as prefix so alphabetical order ensures parent loads first
+  - Example: `tours.rb` + `tours_activities_supplement.rb`
+- `z_` prefix ONLY when file must load LAST (depends on data from multiple unrelated modules)
+- ❌ NEVER use suffixes: `_all`, `_extended`, `_phase2`, `_fix`, `_associations` — merge into the module file instead
+
+**When to Create a New Data Pack File:**
+```ruby
+# ✅ CREATE NEW FILE: completely independent business module (different domain)
+# ❌ DO NOT create new file: adding data to existing module, fixing bugs,
+#    adding fields, creating within-domain associations — edit the existing file
+```
+
+**File Template:**
+```ruby
+# frozen_string_literal: true
+
+# module_name_v1 数据包
+# 加载方式: rake validator:reset_baseline
+
+puts "正在加载 module_name_v1 数据包..."
+
+ModelName.insert_all([
+  { field1: 'value1', data_version: '0' },
+])
+
+puts "✓ 数据包加载完成"
+```
+
+**MANDATORY RULES:**
+- ✅ ONLY use `rake validator:reset_baseline` to load data packs
+- ✅ ONE business module in ONE file
+- ✅ Use `insert_all` (faster, bypasses callbacks)
+- ❌ NEVER use `find_or_create_by!` in data packs
+- ❌ NEVER place test/baseline data in `db/seeds/`
+- ❌ NEVER use `destroy_all` in data pack files — ONLY exception: `base.rb`
+- ❌ NEVER split one business module across multiple files
+
+**Why NO destroy_all in data packs?** `rake validator:reset_baseline` already clears all non-baseline data before loading. Adding `destroy_all` is redundant — the table is already empty when loading starts.
+
+**Validate data pack integrity:**
+```bash
+rake validator:validate_packs   # Checks schema version guard, required columns, data_version='0'
+```
+
+## Validator Development Best Practices
+
+**⚠️ MANDATORY: Verify Model Fields Before Writing Validators**
+
+Before querying any model in a validator, check its actual column and association names:
+```bash
+rails runner "puts ModelName.column_names.join(', ')"
+rails runner "puts ModelName.reflect_on_all_associations.map(&:name).join(', ')"
+```
+
+**verify Method — Mandatory Query Rules**
+
+**1. Always include data_version filter (MANDATORY):**
+```ruby
+records = ModelName
+  .where(core_entity_field: @entity_value)  # Filter by scope entity
+  .where(data_version: @data_version)        # Session isolation — NEVER skip
+  .order(created_at: :desc)
+  .to_a
+```
+
+**2. Filter by scope entity in query; validate specific attributes in separate assertions:**
+```ruby
+# ❌ BAD: filtering the attribute-under-test into the query
+records = ModelName.where(status: @expected_status, data_version: @data_version)
+# If status is wrong, error is "No records found" — loses scoring granularity
+
+# ✅ GOOD: filter by entity only, validate attribute in its own assertion
+records = ModelName.where(data_version: @data_version)
+add_assertion "Status is #{@expected_status}", weight: 15 do
+  records.each { |r| expect(r.status).to eq(@expected_status) }
+end
+```
+
+**3. Guard clause after first assertion (prevents crashes when dependent assertions run on nil):**
+```ruby
+add_assertion "Record exists", weight: 25 do
+  @records = ModelName.where(data_version: @data_version).to_a
+  expect(@records).not_to be_empty, "No records found"
+end
+
+return if @records.nil? || @records.empty?  # Guard — required before any assertion that reads @records
+
+add_assertion "Attribute correct", weight: 15 do
+  @records.each { |r| expect(r.attribute).to eq(@expected) }
+end
+```
+
+**4. Assertion weight distribution (total MUST sum to 100):**
+- Existence + Count: 20–25%
+- Core Entity Correct: 10–15%
+- Individual Attributes: 10–15% each
+- Business Logic / Complex validation: 20–30%
+
+**5. Error messages must be specific:**
+```ruby
+# ✅ Good
+expect(record.status).to eq(@expected), "Status wrong. Expected: #{@expected}, Got: #{record.status}"
+
+# ❌ Bad
+expect(record.status).to eq(@expected), "Wrong"
+expect(record.status).to eq(@expected)  # No message
+```
+
+**simulate Method — CRITICAL Data Isolation Rule**
+
+❌ **NEVER create `data_version: '0'` records in simulate methods:**
+```ruby
+# ❌ WRONG — pollutes baseline, breaks isolation between validator sessions
+def simulate
+  post = Post.create!(title: 'Template', data_version: '0')
+end
+```
+
+✅ **Correct pattern:**
+1. Data packs create foundation data with `data_version: '0'`
+2. `prepare` queries foundation data via `find_by!` (queries only, never creates)
+3. `simulate` creates business records with `data_version: @data_version`
+
+```ruby
+def prepare
+  @template = Post.find_by!(title: 'Template Post', data_version: '0')
+end
+
+def simulate
+  PostDraft.create!(template: @template, data_version: @data_version)  # ✅ Session-scoped
+end
+```
+
 ## FRONTEND DEVELOPMENT RULES - STIMULUS + TURBO + TYPESCRIPT
 
 **MANDATORY**: ALL frontend interactions MUST use Stimulus controllers (read controller header comments first, never guess target/value/action names). NO inline JavaScript, jQuery, or pure JavaScript allowed. ALWAYS prefer TailwindCSS v3 for styling.
 
 **Icons**: NEVER use emojis. Use Lucide icons: `<%= lucide_icon "icon-name", class: "w-5 h-5" %>`.
+
+**STIMULUS CONTROLLER & VIEW STYLE SYNCHRONIZATION — CRITICAL:**
+- When modifying view templates with Stimulus targets, ALWAYS also check corresponding controller logic
+- When changing CSS classes in views that a controller manipulates, update the controller to match
+- **Pattern**: If view uses `class="text-gray-900 text-gray-500"` for active/inactive states, the controller MUST toggle EXACTLY those class names — not any old/stale ones
+- **Before editing view styles**: Search codebase for the target name, confirm no controller still manipulates old class names
+- **After editing controller logic**: Verify view template actually has the matching CSS classes
+- Run `npm run build` after any TypeScript controller changes to regenerate JS bundles
 
 ## Testing Requirements
 
@@ -191,6 +367,19 @@ Never write nested form.
 - Major changes or before delivery: Run full `rake test` to ensure stability
 
 `rake test` is configured to only show 5 failed test cases at a time, so you should repeatedly run rake test if these have errors (no more than 10 rounds) until all tests pass
+
+**Validator Lint — Static Code Analysis:**
+- **Purpose**: Detect common validator issues before runtime
+- **Commands**:
+  - `rake validator:lint` — Check all validators
+  - `rake validator:lint_single[validator_id]` — Check a specific validator (e.g., `v001`)
+- **Configuration**: `config/validator_lint_rules.yml` (optional — lint works without it)
+- **Detection Types**:
+  1. **Stale Fields (HIGH)**: Usage of deprecated model fields
+  2. **Missing data_version (HIGH)**: Query in verify missing `.where(data_version: @data_version)`
+  3. **Missing .includes() (MEDIUM)**: Potential N+1 query issues
+  4. **View Alignment (MEDIUM)**: Validator tests fields not found in declared view files
+- **ALWAYS run before committing new or modified validators**
 
 For authenticated curl: `rails dev:token[test@example.com]` outputs the token and example curl command (will create user if not exists). Copy the token and use it:
 ```bash
