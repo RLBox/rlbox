@@ -42,6 +42,8 @@ yarn-debug.log*
 /public/uploads/*
 /public/dev-assets/*
 /public/assets/*
+/public/images/*
+!/public/images/.keep
 /tags
 
 /config/application.yml

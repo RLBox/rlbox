@@ -111,9 +111,28 @@ Do not generate any fake data that should originally be in the database for user
 
 Do not write any business logic in the admin backend that should only be for website management and maintenance.
 
-Generate images using this placeholder website: https://images.unsplash.com/ and simultaneously verify accessibility with `curl` if you need static assets.
+**Image Management — NEVER use direct Unsplash URLs:**
 
-**ActiveStorage in Seeds**: When creating seed data for models with image attachments, Use unsplash image for pretty UI. Example: `Photo.create!(title: 'Demo', image: { io: URI.open('https://images.unsplash.com/xxx'), filename: 'photo.jpg' })`.
+❌ **NEVER** store `https://images.unsplash.com/...` as an `image_url` value — external URLs break when the network is unavailable, subject to rate limiting, and create runtime dependencies.
+
+✅ **CORRECT pattern** — use `ImageSeedHelper` to get local paths:
+```ruby
+# At the top of the data pack file:
+require_relative '../../../../../app/helpers/image_seed_helper'
+
+# In insert_all data:
+Model.insert_all([
+  { name: 'Example', image_url: ImageSeedHelper.random_image_from_category(:covers), data_version: '0' }
+])
+```
+
+Images must be downloaded first with `rake images:seed` (run once after cloning). Available categories: `:people`, `:products`, `:covers`, `:landscapes`, `:interiors`.
+
+**For ActiveStorage attachments** (not image_url string columns), `URI.open` is acceptable **only in `db/seeds.rb`** — never in data packs which use `insert_all`:
+```ruby
+# db/seeds.rb only:
+Photo.create!(title: 'Demo', image: { io: URI.open('https://images.unsplash.com/xxx?w=800'), filename: 'photo.jpg' })
+```
 
 **Image Processing**: Prefer native ActiveStorage variants. If custom processing needed, use `ImageProcessing::Vips` only. Forbidden: MiniMagick, direct Vips::Image.
 
@@ -245,6 +264,8 @@ puts "✓ 数据包加载完成"
 - ✅ ONLY use `rake validator:reset_baseline` to load data packs
 - ✅ ONE business module in ONE file
 - ✅ Use `insert_all` (faster, bypasses callbacks)
+- ✅ Use `ImageSeedHelper.random_image_from_category(:category)` for image_url columns (requires `rake images:seed` first)
+- ❌ NEVER use direct `https://images.unsplash.com/...` URLs in image_url string columns
 - ❌ NEVER use `find_or_create_by!` in data packs
 - ❌ NEVER place test/baseline data in `db/seeds/`
 - ❌ NEVER use `destroy_all` in data pack files — ONLY exception: `base.rb`
