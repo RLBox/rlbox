@@ -173,6 +173,45 @@ namespace :validator do
   end
 
   # ---------------------------------------------------------------------------
+  # validator:validate_packs
+  # Check data pack integrity: required columns, data_version='0', model inference.
+  # ---------------------------------------------------------------------------
+  desc 'Validate data pack integrity (null checks, data_version, model inference)'
+  task validate_packs: :environment do
+    load_all_models
+    require Rails.root.join('lib/data_pack_validator')
+
+    validator = DataPackValidator.new
+    results   = validator.validate_all
+
+    puts "\n=== Data Pack Validation ===\n"
+    puts "  Schema version : #{results[:schema_version]}"
+    puts "  Packs checked  : #{results[:pack_count]}"
+    puts "  Passed         : #{results[:passed_count]}"
+    puts "  Failed         : #{results[:failed_count]}"
+    puts ''
+
+    results[:packs].each do |pack_name, result|
+      icon = result[:passed] ? '✓' : '✗'
+      puts "  #{icon} #{pack_name}"
+      result[:models].each do |m|
+        status = m[:errors].empty? ? 'ok' : "#{m[:errors].size} error(s)"
+        puts "      #{m[:name].ljust(30)} #{m[:count]} baseline record(s)  [#{status}]"
+        m[:errors].each { |e| puts "        ✗ #{e}" }
+      end
+      result[:errors].each { |e| puts "    ✗ #{e}" } if result[:models].empty?
+      puts ''
+    end
+
+    unless results[:all_passed]
+      puts "  Data pack validation FAILED\n\n"
+      exit 1
+    end
+
+    puts "  All data packs passed.\n\n"
+  end
+
+  # ---------------------------------------------------------------------------
   # validator:list
   # List all validator classes discovered under app/validators/.
   # ---------------------------------------------------------------------------

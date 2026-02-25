@@ -4,25 +4,22 @@
 # Extends BaseValidator to support AI-powered multi-turn dialogue testing
 #
 # Usage:
-#   class HotelBookingMultiTurnValidator < MultiTurnBaseValidator
+#   class V201BookingMultiTurnValidator < MultiTurnBaseValidator
 #     self.validator_id = 'v201'
-#     self.task_id = 'uuid-here'
-#     self.title = '酒店预订多轮对话'
+#     self.title = '预订多轮对话'
 #     self.max_turns = 10
 #
 #     def initial_task_goal
-#       "帮我订一个上海的酒店，预算 500 元左右"
+#       "帮我创建一篇已发布的帖子"
 #     end
 #
 #     def user_context
-#       { budget: 500, city: '上海', check_in_date: 3.days.from_now }
+#       { status: 'published' }
 #     end
 #
 #     def verify
-#       # Use standard assertions to check results
-#       add_assertion "创建了酒店订单", weight: 50 do
-#         orders = HotelOrder.where(data_version: @data_version)
-#         expect(orders).not_to be_empty
+#       add_assertion "创建了帖子", weight: 100 do
+#         expect(Post.where(data_version: @data_version)).not_to be_empty
 #       end
 #     end
 #   end
