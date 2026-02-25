@@ -1,0 +1,46 @@
+<% content_for :title, "Posts" %>
+
+<div class="container-md py-8">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-3xl font-bold text-primary">Posts</h1>
+    <%= link_to new_post_path, class: "btn-primary" do %>
+      <%= lucide_icon "plus", class: "w-4 h-4 mr-2" %>
+      New Post
+    <% end %>
+  </div>
+
+  <% if @posts.empty? %>
+    <div class="card p-12 text-center text-secondary">
+      <p>No posts yet.</p>
+      <%= link_to "Create your first post", new_post_path, class: "btn-primary mt-4 inline-block" %>
+    </div>
+  <% else %>
+    <div class="space-y-4">
+      <% @posts.each do |post| %>
+        <div class="card p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <h2 class="text-xl font-semibold text-primary">
+                <%= link_to post.title, post_path(post), class: "hover:underline" %>
+              </h2>
+              <p class="text-sm text-muted mt-1">
+                <%= post.created_at.strftime('%Y-%m-%d') %>
+                &middot;
+                <span class="capitalize"><%= post.status %></span>
+              </p>
+            </div>
+            <div class="flex space-x-2">
+              <%= link_to edit_post_path(post), class: "btn-ghost btn-sm" do %>
+                <%= lucide_icon "pencil", class: "w-4 h-4" %>
+              <% end %>
+              <%= button_to post_path(post), method: :delete, class: "btn-ghost btn-sm text-danger",
+                            data: { confirm: "Delete this post?" } do %>
+                <%= lucide_icon "trash-2", class: "w-4 h-4" %>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>

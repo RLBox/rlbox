@@ -1,0 +1,32 @@
+<%# ui_supports: status=[draft,published] %>
+<%= form_with model: post, local: true, class: "space-y-6" do |form| %>
+  <% if post.errors.any? %>
+    <div class="alert alert-danger">
+      <ul class="list-disc list-inside">
+        <% post.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="form-group">
+    <%= form.label :title %>
+    <%= form.text_field :title, placeholder: "Post title..." %>
+  </div>
+
+  <div class="form-group">
+    <%= form.label :body %>
+    <%= form.text_area :body, rows: 6, placeholder: "Write your post..." %>
+  </div>
+
+  <div class="form-group">
+    <%= form.label :status %>
+    <%= ui_select form, :status, :posts, { include_blank: false }, { class: "form-select" } %>
+  </div>
+
+  <div class="flex justify-end space-x-3">
+    <%= link_to "Cancel", posts_path, class: "btn-ghost" %>
+    <%= form.submit class: "btn-primary" %>
+  </div>
+<% end %>

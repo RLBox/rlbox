@@ -1,0 +1,39 @@
+<% content_for :title, @post.title %>
+
+<div class="container-md py-8">
+  <div class="flex items-center space-x-4 mb-6">
+    <%= link_to posts_path, class: "btn-ghost text-sm py-1 px-3" do %>
+      <%= lucide_icon "arrow-left", class: "w-4 h-4 mr-2" %>
+      Back to Posts
+    <% end %>
+  </div>
+
+  <div class="card p-8">
+    <div class="flex items-start justify-between mb-4">
+      <h1 class="text-3xl font-bold text-primary"><%= @post.title %></h1>
+      <span class="badge badge-secondary capitalize"><%= @post.status %></span>
+    </div>
+
+    <p class="text-sm text-muted mb-6">
+      <%= @post.created_at.strftime('%Y-%m-%d %H:%M') %>
+    </p>
+
+    <% if @post.body.present? %>
+      <div class="prose text-primary">
+        <%= simple_format @post.body %>
+      </div>
+    <% end %>
+
+    <div class="flex space-x-3 mt-8 pt-6 border-t border-border">
+      <%= link_to edit_post_path(@post), class: "btn-primary" do %>
+        <%= lucide_icon "pencil", class: "w-4 h-4 mr-2" %>
+        Edit
+      <% end %>
+      <%= button_to post_path(@post), method: :delete, class: "btn-danger",
+                    data: { confirm: "Delete this post?" } do %>
+        <%= lucide_icon "trash-2", class: "w-4 h-4 mr-2" %>
+        Delete
+      <% end %>
+    </div>
+  </div>
+</div>

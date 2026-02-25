@@ -1,0 +1,16 @@
+<% content_for :title, "New Post" %>
+
+<div class="container-sm py-8">
+  <div class="flex items-center space-x-4 mb-6">
+    <%= link_to posts_path, class: "btn-ghost text-sm py-1 px-3" do %>
+      <%= lucide_icon "arrow-left", class: "w-4 h-4 mr-2" %>
+      Back to Posts
+    <% end %>
+  </div>
+
+  <h1 class="text-3xl font-bold text-primary mb-8">New Post</h1>
+
+  <div class="card p-8">
+    <%= render 'form', post: @post %>
+  </div>
+</div>

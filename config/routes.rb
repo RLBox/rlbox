@@ -48,6 +48,7 @@ Rails.application.routes.draw do
   # Authentication routes generated end
 
   # write your business logic routes here
+  resources :posts
 
   # API routes
   namespace :api do

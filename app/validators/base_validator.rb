@@ -1,13 +1,7 @@
 # frozen_string_literal: true
 
-# 条件加载 RSpec（仅在开发/测试环境可用）
-begin
-  require 'rspec/expectations'
-  require 'rspec/matchers'
-  RSPEC_AVAILABLE = true
-rescue LoadError
-  RSPEC_AVAILABLE = false
-end
+require 'rspec/expectations'
+require 'rspec/matchers'
 
 # BaseValidator 为验证任务提供 RSpec 风格的 DSL
 # 
@@ -26,188 +20,34 @@ end
 #     end
 #   end
 class BaseValidator
-  # 仅在 RSpec 可用时 include
-  include RSpec::Matchers if RSPEC_AVAILABLE
-  
-  # 自定义异常类（用于生产环境）
-  class ExpectationNotMetError < StandardError
-    def initialize(message)
-      super(message)
-    end
-  end
-  
-  # 简单的 ExpectationTarget 实现（用于生产环境）
-  class ExpectationTarget
-    def initialize(actual)
-      @actual = actual
-    end
-    
-    def to(matcher = nil, *args, &block)
-      if matcher.nil?
-        # 返回一个 MatcherProxy 对象，支持链式调用
-        MatcherProxy.new(@actual, negated: false)
-      else
-        # 直接调用匹配器
-        matcher.call(@actual, *args, &block)
-      end
-    end
+  include RSpec::Matchers
 
-    def not_to(matcher = nil, *args, &block)
-      if matcher.nil?
-        # 返回一个反向的 MatcherProxy 对象
-        MatcherProxy.new(@actual, negated: true)
-      else
-        # 直接调用反向匹配器
-        # TODO: 实现反向匹配逻辑
-        raise NotImplementedError, "not_to with direct matcher not yet implemented"
-      end
-    end
-  end
-  
-  # MatcherProxy 类，提供各种匹配器方法
-  class MatcherProxy
-    def initialize(actual, negated: false)
-      @actual = actual
-      @negated = negated
-    end
-    
-    def eq(expected, message = nil)
-      unless @actual == expected
-        error_msg = message || "expected: #{expected.inspect}\n     got: #{@actual.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def match(pattern, message = nil)
-      unless @actual.to_s.match?(pattern)
-        error_msg = message || "expected: #{@actual.inspect} to match #{pattern.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def be
-      ComparisonProxy.new(@actual)
-    end
-    
-    def be_true(message = nil)
-      unless @actual == true
-        error_msg = message || "expected: true\n     got: #{@actual.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def be_false(message = nil)
-      unless @actual == false
-        error_msg = message || "expected: false\n     got: #{@actual.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def be_nil(message = nil)
-      if @negated
-        # not_to be_nil
-        if @actual.nil?
-          error_msg = message || "expected: not nil\n     got: nil"
-          raise ExpectationNotMetError, error_msg
-        end
-      else
-        # to be_nil
-        unless @actual.nil?
-          error_msg = message || "expected: nil\n     got: #{@actual.inspect}"
-          raise ExpectationNotMetError, error_msg
-        end
-      end
-      true
-    end
-    
-    def be_present(message = nil)
-      if @actual.respond_to?(:present?)
-        unless @actual.present?
-          error_msg = message || "expected: present\n     got: #{@actual.inspect}"
-          raise ExpectationNotMetError, error_msg
-        end
-      elsif @actual.nil? || (@actual.respond_to?(:empty?) && @actual.empty?)
-        error_msg = message || "expected: present\n     got: #{@actual.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def be_empty(message = nil)
-      if @actual.respond_to?(:empty?)
-        unless @actual.empty?
-          error_msg = message || "expected: empty\n     got: #{@actual.inspect}"
-          raise ExpectationNotMetError, error_msg
-        end
-      else
-        error_msg = message || "expected: empty\n     got: #{@actual.inspect} (does not respond to empty?)"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def include(item, message = nil)
-      if @actual.respond_to?(:include?)
-        unless @actual.include?(item)
-          error_msg = message || "expected: #{@actual.inspect} to include #{item.inspect}"
-          raise ExpectationNotMetError, error_msg
-        end
-      else
-        error_msg = message || "expected: #{@actual.inspect} to respond to include?"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-  end
-  
-  # ComparisonProxy 类，处理比较运算符（be >=, be < 等）
-  class ComparisonProxy
-    def initialize(actual)
-      @actual = actual
-    end
-    
-    def >=(expected, message = nil)
-      unless @actual >= expected
-        error_msg = message || "expected: #{@actual.inspect} to be >= #{expected.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def <=(expected, message = nil)
-      unless @actual <= expected
-        error_msg = message || "expected: #{@actual.inspect} to be <= #{expected.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def >(expected, message = nil)
-      unless @actual > expected
-        error_msg = message || "expected: #{@actual.inspect} to be > #{expected.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-    
-    def <(expected, message = nil)
-      unless @actual < expected
-        error_msg = message || "expected: #{@actual.inspect} to be < #{expected.inspect}"
-        raise ExpectationNotMetError, error_msg
-      end
-      true
-    end
-  end
-  
+  # Raised when a validator declares requires_ui for a value not exposed in the frontend.
+  class UiCapabilityMissingError < StandardError; end
+
   attr_reader :execution_id, :errors, :score, :assertions
   
   class << self
     attr_accessor :validator_id, :task_id, :title, :description, :timeout_seconds
-    
+
+    # Declare required UI capabilities. Called at class level in subclasses:
+    #   requires_ui :posts, status: [:draft, :published]
+    #
+    # Raises UiCapabilityMissingError in execute_prepare if the frontend form
+    # does not declare the corresponding ui_supports: annotation.
+    def requires_ui(resource, **field_values)
+      @ui_requirements ||= []
+      field_values.each do |field, values|
+        Array(values).each do |value|
+          @ui_requirements << { resource: resource.to_s, field: field.to_s, value: value.to_s }
+        end
+      end
+    end
+
+    def ui_requirements
+      @ui_requirements || []
+    end
+
     # 返回验证器元信息
     def metadata
       {
@@ -249,6 +89,9 @@ class BaseValidator
   
   # 执行准备阶段（设置 data_version）
   def execute_prepare
+    # Pre-flight: verify frontend declares all UI capabilities this validator needs
+    check_ui_requirements!
+
     # 生成唯一的 data_version（使用十六进制随机字符串）
     # 使用 SecureRandom.hex(8) 生成 16 字符的十六进制字符串
     # 示例: "a3f9c8b2e1d4567f"
@@ -383,58 +226,70 @@ class BaseValidator
     "今天是#{date_str}。#{title}"
   end
   
-  # 确保基线数据已加载
+  # Ensure baseline data (data_version='0') is loaded.
+  # Called before simulate so automated tests are self-contained.
+  # The web initializer (config/initializers/validator_baseline.rb) handles
+  # normal app startup; this is a fallback for rake/test contexts.
   def ensure_baseline_data_loaded
-    # 检查是否已存在基线数据（使用City作为标志）
-    return if City.where(data_version: 0).exists?
-    
-    puts "\n" + "=" * 80
-    puts "🚀 正在初始化验证器基线数据 (data_version=0)"
-    puts "=" * 80
-    
-    # 设置 PostgreSQL 会话变量 app.data_version='0'
+    # Check whether any versionable model already has baseline records
+    versionable = DataVersionable.models - DataVersionable.excluded_models
+    has_baseline = versionable.any? do |model|
+      model.column_names.include?('data_version') &&
+        model.unscoped.where(data_version: '0').exists?
+    end
+    return if has_baseline
+
+    data_packs_dir = Rails.root.join('app/validators/support/data_packs')
+    pack_files = Dir.glob(data_packs_dir.join('**/*.rb')).sort
+    return if pack_files.empty?
+
+    Rails.logger.info '[BaseValidator] Loading baseline data packs...'
     ActiveRecord::Base.connection.execute("SET SESSION app.data_version = '0'")
-    
-    # 获取数据包目录
-    data_packs_dir = Rails.root.join('app/validators/support/data_packs/v1')
-    
-    unless Dir.exist?(data_packs_dir)
-      raise "Data packs directory not found: #{data_packs_dir}"
+
+    base_file = pack_files.find { |f| File.basename(f) == 'base.rb' }
+    if base_file
+      pack_files.delete(base_file)
+      pack_files.unshift(base_file)
     end
-    
-    # 获取所有 .rb 文件并按文件名排序
-    data_pack_files = Dir.glob(data_packs_dir.join('*.rb')).sort
-    
-    # 确保 base.rb 优先加载（如果存在）
-    base_file = data_packs_dir.join('base.rb')
-    if File.exist?(base_file)
-      data_pack_files.delete(base_file.to_s)
-      data_pack_files.unshift(base_file.to_s)
-    end
-    
-    # 加载所有数据包
-    data_pack_files.each do |file|
-      filename = File.basename(file)
-      puts "  → 加载 #{filename}"
+
+    pack_files.each do |file|
+      filename = Pathname.new(file).relative_path_from(Rails.root).to_s
       begin
         load file
+        Rails.logger.info "[BaseValidator]   ✓ #{filename}"
       rescue StandardError => e
-        puts "  ✗ 加载失败: #{filename}"
-        puts "    错误: #{e.message}"
-        raise e  # 在 simulate 阶段应该直接失败，而不是忽略错误
+        Rails.logger.error "[BaseValidator]   ✗ #{filename}: #{e.message}"
+        raise e
       end
     end
-    
-    puts "=" * 80
-    puts "✓ 基线数据初始化完成 (data_version=0)"
-    puts "  - 共加载 #{data_pack_files.size} 个数据包"
-    puts "  - City 数量: #{City.where(data_version: 0).count}"
-    puts "  - Flight 数量: #{Flight.where(data_version: 0).count}"
-    puts "  - User 数量: #{User.where(data_version: 0).count}"
-    puts "=" * 80
-    puts ""
   end
   
+  # Verify that every requires_ui declaration is satisfied by current ERB annotations.
+  def check_ui_requirements!
+    failures = self.class.ui_requirements.reject do |req|
+      UiCapabilities.supports?(req[:resource], req[:field], req[:value])
+    end
+    return if failures.empty?
+
+    lines = failures.map { |r| "  #{r[:resource]}.#{r[:field]}=#{r[:value]}" }
+    # Build a suggested annotation string grouped by resource
+    by_resource = failures.group_by { |r| r[:resource] }
+    suggestions = by_resource.map do |resource, reqs|
+      by_field = reqs.group_by { |r| r[:field] }
+      fields_str = by_field.map { |field, rs| "#{field}=[#{rs.map { |r| r[:value] }.join(',')}]" }.join(' ')
+      "  app/views/#{resource}/_form.html.erb:\n    <%# ui_supports: #{fields_str} %>"
+    end.join("\n")
+
+    raise UiCapabilityMissingError, <<~MSG.strip
+      #{self.class.name} requires UI capabilities not declared in any _form.html.erb:
+
+      #{lines.join("\n")}
+
+      Add ui_supports: annotations to the relevant form views:
+      #{suggestions}
+    MSG
+  end
+
   # 回滚到基线状态（删除当前 data_version 的所有数据）
   def rollback_to_baseline
     return unless @data_version
@@ -520,28 +375,24 @@ class BaseValidator
   # 添加断言（RSpec 风格）
   def add_assertion(name, weight:)
     assertion = { name: name, weight: weight, passed: false }
-    
+
     begin
       yield
       assertion[:passed] = true
       @score += weight
-    rescue (RSPEC_AVAILABLE ? RSpec::Expectations::ExpectationNotMetError : ExpectationNotMetError) => e
+    rescue RSpec::Expectations::ExpectationNotMetError => e
       assertion[:error] = e.message
       @errors << "#{name}: #{e.message}"
     rescue StandardError => e
       assertion[:error] = "执行错误: #{e.message}"
       @errors << "#{name}: #{e.message}"
     end
-    
+
     @assertions << assertion
   end
-  
+
   # 提供 RSpec 的 expect 方法
   def expect(actual)
-    if RSPEC_AVAILABLE
-      RSpec::Expectations::ExpectationTarget.new(actual)
-    else
-      ExpectationTarget.new(actual)
-    end
+    RSpec::Expectations::ExpectationTarget.new(actual)
   end
 end
