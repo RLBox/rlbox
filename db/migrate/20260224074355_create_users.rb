@@ -10,6 +10,9 @@ class CreateUsers < ActiveRecord::Migration[7.2]
       t.string :provider
       t.string :uid
 
+      t.string :data_version, null: false, default: '0', limit: 50
+      t.index :data_version
+
       t.timestamps
     end
   end

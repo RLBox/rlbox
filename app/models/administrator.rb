@@ -1,4 +1,7 @@
 class Administrator < ApplicationRecord
+  # System model — globally visible, not scoped per validator session
+  data_version_excluded!
+
   validates :name, presence: true, uniqueness: true
   validates :role, presence: true, inclusion: { in: %w[admin super_admin] }
   has_secure_password

@@ -1,0 +1,20 @@
+class <%= migration_class_name %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :<%= table_name %> do |t|
+<% attributes.each do |attribute| -%>
+<% if attribute.password_digest? -%>
+      t.string :password_digest<%= attribute.inject_options %>
+<% else -%>
+      t.<%= attribute.type %> :<%= attribute.name %><%= attribute.inject_options %>
+<% end -%>
+<% end -%>
+      # data_version is required for validator session isolation (DataVersionable concern).
+      # Remove this line and call `data_version_excluded!` in the model if this is a
+      # system/global model that should not be scoped per validator session.
+      t.string :data_version, null: false, default: '0', limit: 50
+      t.index :data_version
+
+      t.timestamps
+    end
+  end
+end

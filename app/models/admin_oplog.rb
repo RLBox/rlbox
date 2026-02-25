@@ -1,4 +1,7 @@
 class AdminOplog < ApplicationRecord
+  # System model — audit trail should be globally visible
+  data_version_excluded!
+
   belongs_to :administrator
 
   validates :action, presence: true

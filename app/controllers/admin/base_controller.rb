@@ -9,6 +9,7 @@ class Admin::BaseController < ActionController::Base
   protect_from_forgery with: :exception
 
   before_action :authenticate_admin!
+  before_action :check_first_login_password_hint
   around_action :log_admin_action
 
   helper_method :current_admin
@@ -17,14 +18,20 @@ class Admin::BaseController < ActionController::Base
 
   def authenticate_admin!
     if current_admin.blank?
+      store_location_for_admin
       redirect_to admin_login_path
       return
     end
 
     if current_admin.password_digest != session[:current_admin_token]
+      store_location_for_admin
       redirect_to admin_login_path, alert: 'Password was changed, please log in again'
       return
     end
+  end
+
+  def store_location_for_admin
+    session[:admin_return_to] = request.fullpath if request.get? && !request.xhr?
   end
 
   def current_admin
@@ -40,6 +47,16 @@ class Admin::BaseController < ActionController::Base
     session[:current_admin_id] = nil
     session[:current_admin_token] = nil
     @_current_admin = nil
+  end
+
+  def check_first_login_password_hint
+    return unless current_admin
+    return unless Rails.env.production?
+    return unless current_admin.first_login?
+    return if controller_name == 'accounts' && action_name == 'edit'
+    return if controller_name == 'accounts' && action_name == 'update'
+
+    flash.now[:warning] = "Welcome! For security reasons, we recommend changing your default password. #{ActionController::Base.helpers.link_to('Change Password', edit_admin_account_path, class: 'underline')}".html_safe
   end
 
   def log_admin_action

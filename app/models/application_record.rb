@@ -1,6 +1,8 @@
 class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
 
+  include DataVersionable
+
   # Helper: Generate full URL for ActiveStorage attachments
   def attachment_url(attachment)
     return nil unless attachment.attached?
