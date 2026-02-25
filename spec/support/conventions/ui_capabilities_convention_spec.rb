@@ -35,9 +35,15 @@ RSpec.describe 'UiCapabilities convention' do
     failures = []
     validators.each do |validator_class|
       validator_class.ui_requirements.each do |req|
-        next if UiCapabilities.supports?(req[:resource], req[:field], req[:value])
+        satisfied = if req[:check] == :presence
+                      UiCapabilities.field_present?(req[:resource], req[:field])
+                    else
+                      UiCapabilities.supports?(req[:resource], req[:field], req[:value])
+                    end
+        next if satisfied
 
-        failures << "#{validator_class.name}: #{req[:resource]}.#{req[:field]}=#{req[:value]}"
+        desc = req[:check] == :presence ? "#{req[:resource]}.#{req[:field]} (field missing)" : "#{req[:resource]}.#{req[:field]}=#{req[:value]}"
+        failures << "#{validator_class.name}: #{desc}"
       end
     end
 

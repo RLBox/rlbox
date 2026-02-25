@@ -31,15 +31,22 @@ class BaseValidator
     attr_accessor :validator_id, :task_id, :title, :description, :timeout_seconds
 
     # Declare required UI capabilities. Called at class level in subclasses:
-    #   requires_ui :posts, status: [:draft, :published]
     #
-    # Raises UiCapabilityMissingError in execute_prepare if the frontend form
-    # does not declare the corresponding ui_supports: annotation.
-    def requires_ui(resource, **field_values)
+    #   requires_ui :posts, :title, :body, status: [:draft, :published]
+    #
+    # Positional symbols  → field must exist in the form (bare ui_supports: title)
+    # Keyword arguments   → field must expose these specific values (ui_supports: status=[draft])
+    #
+    # Raises UiCapabilityMissingError in execute_prepare if any requirement is
+    # not satisfied by the current ui_supports: annotation.
+    def requires_ui(resource, *fields, **field_values)
       @ui_requirements ||= []
+      fields.each do |field|
+        @ui_requirements << { resource: resource.to_s, field: field.to_s, check: :presence }
+      end
       field_values.each do |field, values|
         Array(values).each do |value|
-          @ui_requirements << { resource: resource.to_s, field: field.to_s, value: value.to_s }
+          @ui_requirements << { resource: resource.to_s, field: field.to_s, check: :value, value: value.to_s }
         end
       end
     end
@@ -267,17 +274,24 @@ class BaseValidator
   # Verify that every requires_ui declaration is satisfied by current ERB annotations.
   def check_ui_requirements!
     failures = self.class.ui_requirements.reject do |req|
-      UiCapabilities.supports?(req[:resource], req[:field], req[:value])
+      if req[:check] == :presence
+        UiCapabilities.field_present?(req[:resource], req[:field])
+      else
+        UiCapabilities.supports?(req[:resource], req[:field], req[:value])
+      end
     end
     return if failures.empty?
 
-    lines = failures.map { |r| "  #{r[:resource]}.#{r[:field]}=#{r[:value]}" }
-    # Build a suggested annotation string grouped by resource
+    lines = failures.map do |r|
+      r[:check] == :presence ? "  #{r[:resource]}.#{r[:field]} (field missing)" : "  #{r[:resource]}.#{r[:field]}=#{r[:value]}"
+    end
+
     by_resource = failures.group_by { |r| r[:resource] }
     suggestions = by_resource.map do |resource, reqs|
-      by_field = reqs.group_by { |r| r[:field] }
-      fields_str = by_field.map { |field, rs| "#{field}=[#{rs.map { |r| r[:value] }.join(',')}]" }.join(' ')
-      "  app/views/#{resource}/_form.html.erb:\n    <%# ui_supports: #{fields_str} %>"
+      bare   = reqs.select { |r| r[:check] == :presence }.map { |r| r[:field] }
+      valued = reqs.select { |r| r[:check] == :value }.group_by { |r| r[:field] }
+      parts  = bare + valued.map { |field, rs| "#{field}=[#{rs.map { |r| r[:value] }.join(',')}]" }
+      "  app/views/#{resource}/_form.html.erb:\n    <%# ui_supports: #{parts.join(' ')} %>"
     end.join("\n")
 
     raise UiCapabilityMissingError, <<~MSG.strip

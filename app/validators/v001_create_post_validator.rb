@@ -19,7 +19,7 @@ class V001CreatePostValidator < BaseValidator
   # Declares that this validator requires the frontend to expose status=[draft,published].
   # If _form.html.erb doesn't have the annotation, execute_prepare raises
   # BaseValidator::UiCapabilityMissingError before any test data is created.
-  requires_ui :posts, status: %i[draft published]
+  requires_ui :posts, :title, :body, status: %i[draft published]
 
   def prepare
     # Baseline data (e.g. users) is already loaded by the initializer.

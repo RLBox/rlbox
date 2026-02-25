@@ -2,10 +2,14 @@
 
 # UiCapabilities
 #
-# Tracks which field values are actually exposed in the frontend.
+# Tracks which fields and field values are actually exposed in the frontend.
 # Source of truth is ERB annotation comments in view files:
 #
-#   <%# ui_supports: status=[draft,published] delivery_type=[mail] %>
+#   <%# ui_supports: title body status=[draft,published] delivery_type=[mail] %>
+#
+# Two declaration styles:
+#   title        — bare field name: the field input exists in the form
+#   status=[...] — field with values: a select/radio exposes these options
 #
 # The scanner derives the resource name from the view path:
 #   app/views/posts/_form.html.erb  →  resource: "posts"
@@ -13,7 +17,7 @@
 #
 # Usage in validators:
 #   class V001CreatePostValidator < BaseValidator
-#     requires_ui :posts, status: [:draft, :published]
+#     requires_ui :posts, :title, :body, status: [:draft, :published]
 #   end
 #
 module UiCapabilities
@@ -31,18 +35,26 @@ module UiCapabilities
     @scanned = false
   end
 
+  # Returns true if the frontend declares the field input exists (bare annotation).
+  # Also true if the field has declared values (implicitly present).
+  def self.field_present?(resource, field)
+    ensure_scanned!
+    !registry.dig(resource.to_s, field.to_s).nil?
+  end
+
   # Returns true if the frontend declares support for resource.field=value.
   def self.supports?(resource, field, value)
     ensure_scanned!
     values = registry.dig(resource.to_s, field.to_s)
-    return false unless values
+    return false unless values.is_a?(Array)
     values.include?(value.to_s)
   end
 
   # Returns all declared values for a resource+field, or nil if not declared.
   def self.values_for(resource, field)
     ensure_scanned!
-    registry.dig(resource.to_s, field.to_s)
+    entry = registry.dig(resource.to_s, field.to_s)
+    entry.is_a?(Array) ? entry : nil
   end
 
   # Returns the full registry (scans if needed).
@@ -94,11 +106,24 @@ module UiCapabilities
     parts[-2]  # directory name = resource
   end
 
-  # Parse "status=[draft,published] delivery_type=[mail]" into a Hash.
+  # Parse annotation body into a Hash.
+  #
+  # Two formats:
+  #   title          → { "title" => true }          (field is present in form)
+  #   status=[d,p]   → { "status" => ["d", "p"] }   (field exposes these values)
+  #
+  # Example: "title body status=[draft,published]"
+  #   → { "title" => true, "body" => true, "status" => ["draft", "published"] }
   def self.parse_annotation(str)
     result = {}
-    str.scan(/(\w+)=\[([^\]]*)\]/) do |field, values_str|
-      result[field] = values_str.split(',').map(&:strip).reject(&:empty?)
+    # Pass 1: extract field=[values] pairs
+    remaining = str.gsub(/(\w+)=\[([^\]]*)\]/) do
+      result[Regexp.last_match(1)] = Regexp.last_match(2).split(',').map(&:strip).reject(&:empty?)
+      ''  # remove from string so pass 2 doesn't re-match
+    end
+    # Pass 2: remaining bare words are presence-only declarations
+    remaining.scan(/\b([a-z_]\w*)\b/) do |match|
+      result[match[0]] ||= true
     end
     result
   end
