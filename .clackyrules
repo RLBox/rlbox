@@ -128,12 +128,6 @@ Model.insert_all([
 
 Images must be downloaded first with `rake images:seed` (run once after cloning). Available categories: `:people`, `:products`, `:covers`, `:landscapes`, `:interiors`.
 
-**For ActiveStorage attachments** (not image_url string columns), `URI.open` is acceptable **only in `db/seeds.rb`** — never in data packs which use `insert_all`:
-```ruby
-# db/seeds.rb only:
-Photo.create!(title: 'Demo', image: { io: URI.open('https://images.unsplash.com/xxx?w=800'), filename: 'photo.jpg' })
-```
-
 **Image Processing**: Prefer native ActiveStorage variants. If custom processing needed, use `ImageProcessing::Vips` only. Forbidden: MiniMagick, direct Vips::Image.
 
 When installing any new gem or npm packages, always specify a version you are most familiar with and suitable for the project. Do not use the latest version directly.
