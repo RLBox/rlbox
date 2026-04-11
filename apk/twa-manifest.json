@@ -1,0 +1,51 @@
+{
+  "packageId": "RLBOX_PACKAGE_ID",
+  "host": "RLBOX_HOST",
+  "name": "RLBOX_APP_NAME",
+  "launcherName": "RLBOX_APP_NAME",
+  "display": "standalone",
+  "themeColor": "RLBOX_THEME_COLOR",
+  "themeColorDark": "RLBOX_THEME_COLOR",
+  "navigationColor": "RLBOX_THEME_COLOR",
+  "navigationColorDark": "RLBOX_THEME_COLOR",
+  "navigationDividerColor": "RLBOX_THEME_COLOR",
+  "navigationDividerColorDark": "RLBOX_THEME_COLOR",
+  "backgroundColor": "RLBOX_THEME_COLOR",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://RLBOX_HOST/icon.png",
+  "maskableIconUrl": "https://RLBOX_HOST/icon.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "/home/runner/app/apk/android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://RLBOX_HOST/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://RLBOX_HOST/",
+  "minSdkVersion": 21,
+  "orientation": "any",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1"
+}

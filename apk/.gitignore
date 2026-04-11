@@ -1,0 +1,8 @@
+/build
+/backups
+/.gradle
+/.idea
+/app/build
+local.properties
+*.apk
+*.apk.idsig
