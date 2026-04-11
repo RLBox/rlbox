@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+"""
+apk/bin/setup — 初始化 APK 配置
+
+交互式设置三个核心参数，一次性完成所有文件替换和 Java 目录重命名：
+  1. Package ID   (e.g. com.example.myapp)
+  2. 应用名称      (e.g. MyApp)
+  3. 主题色        (e.g. #3B82F6)
+
+用法:
+  python3 apk/bin/setup
+  # 或直接执行（需要可执行权限）
+  apk/bin/setup
+"""
+
+import os
+import re
+import sys
+import shutil
+from pathlib import Path
+
+# ── 路径定位 ────────────────────────────────────────────────────────────────
+SCRIPT_DIR = Path(__file__).resolve().parent
+APK_DIR    = SCRIPT_DIR.parent
+RES_DIR    = APK_DIR / "app" / "src" / "main" / "res"
+JAVA_BASE  = APK_DIR / "app" / "src" / "main" / "java"
+
+PLACEHOLDER_PACKAGE = "RLBOX_PACKAGE_ID"
+PLACEHOLDER_NAME    = "RLBOX_APP_NAME"
+PLACEHOLDER_COLOR   = "RLBOX_THEME_COLOR"
+PLACEHOLDER_HOST    = "RLBOX_HOST"
+
+
+# ── 工具函数 ────────────────────────────────────────────────────────────────
+def package_to_path(package_id: str) -> str:
+    """com.example.myapp  →  com/example/myapp"""
+    return package_id.replace(".", "/")
+
+
+def validate_package_id(value: str) -> bool:
+    """粗略校验：至少两段，每段只含字母数字下划线，不以数字开头"""
+    parts = value.split(".")
+    if len(parts) < 2:
+        return False
+    for p in parts:
+        if not p or not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', p):
+            return False
+    return True
+
+
+def validate_color(value: str) -> bool:
+    """接受 #RGB / #RRGGBB / #AARRGGBB"""
+    return bool(re.match(r'^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$', value))
+
+
+def ask(prompt: str, validator=None, example: str = "") -> str:
+    hint = f" (e.g. {example})" if example else ""
+    while True:
+        value = input(f"{prompt}{hint}: ").strip()
+        if not value:
+            print("  ⚠️  不能为空，请重新输入")
+            continue
+        if validator and not validator(value):
+            print("  ⚠️  格式不正确，请重新输入")
+            continue
+        return value
+
+
+def replace_in_file(path: Path, replacements: list[tuple[str, str]]):
+    """在文件中批量替换字符串，返回替换次数"""
+    text = path.read_text(encoding="utf-8")
+    count = 0
+    for old, new in replacements:
+        occurrences = text.count(old)
+        if occurrences:
+            text = text.replace(old, new)
+            count += occurrences
+    path.write_text(text, encoding="utf-8")
+    return count
+
+
+# ── 主流程 ────────────────────────────────────────────────────────────────
+def main():
+    print()
+    print("╔══════════════════════════════════════╗")
+    print("║      APK 初始化配置 (apk/bin/setup)    ║")
+    print("╚══════════════════════════════════════╝")
+    print()
+
+    # ── 读取输入 ──
+    package_id  = ask("1. Package ID",
+                       validator=validate_package_id,
+                       example="com.example.myapp")
+    app_name    = ask("2. 应用名称",
+                       example="MyApp")
+    theme_color = ask("3. 主题色（Hex）",
+                       validator=validate_color,
+                       example="#3B82F6")
+    host        = ask("4. 应用域名（不含 https://）",
+                       example="app.example.com")
+
+    print()
+    print("── 确认以下配置 ───────────────────────")
+    print(f"  Package ID : {package_id}")
+    print(f"  应用名称   : {app_name}")
+    print(f"  主题色     : {theme_color}")
+    print(f"  域名       : {host}")
+    print()
+    confirm = input("确认？(y/N): ").strip().lower()
+    if confirm != "y":
+        print("已取消。")
+        sys.exit(0)
+
+    print()
+
+    # ── Step 1: 重命名 Java 包目录 ──
+    # PLACEHOLDER_PACKAGE 本身是字符串 "RLBOX_PACKAGE_ID"，不含点，
+    # 需要扫描 JAVA_BASE 下实际存在的目录（里面含有 .java 文件的叶目录）
+    def find_java_leaf(base: Path) -> Path | None:
+        """找到 JAVA_BASE 下包含 .java 文件的最深目录"""
+        for root, dirs, files in os.walk(base):
+            if any(f.endswith(".java") for f in files):
+                return Path(root)
+        return None
+
+    old_pkg_path = find_java_leaf(JAVA_BASE)
+    new_pkg_path = JAVA_BASE / package_to_path(package_id)
+
+    if old_pkg_path and old_pkg_path.exists() and old_pkg_path != new_pkg_path:
+        new_pkg_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(old_pkg_path), str(new_pkg_path))
+        print(f"  📁 Java 目录重命名")
+        print(f"     {old_pkg_path.relative_to(APK_DIR)}")
+        print(f"     → {new_pkg_path.relative_to(APK_DIR)}")
+        # 清理空的上级目录
+        try:
+            old_pkg_path.parent.rmdir()
+            old_pkg_path.parent.parent.rmdir()
+            old_pkg_path.parent.parent.parent.rmdir()
+        except OSError:
+            pass
+    elif not old_pkg_path:
+        print(f"  ⚠️  找不到 Java 源码目录，跳过重命名")
+
+    # ── Step 2: 文本替换 ──
+    replacements = [
+        (PLACEHOLDER_PACKAGE, package_id),
+        (PLACEHOLDER_NAME,    app_name),
+        (PLACEHOLDER_COLOR,   theme_color),
+        (PLACEHOLDER_HOST,    host),
+    ]
+
+    # 静态文件列表（不含 Java 源码）
+    static_files = [
+        "twa-manifest.json",
+        "app/build.gradle",
+        "app/src/main/AndroidManifest.xml",
+        "app/src/main/res/values/strings.xml",
+        "app/src/main/res/raw/web_app_manifest.json",
+    ]
+
+    # Java 源码文件：从重命名后的目录动态收集
+    java_files = []
+    if new_pkg_path.exists():
+        java_files = [
+            str(p.relative_to(APK_DIR))
+            for p in new_pkg_path.glob("*.java")
+        ]
+
+    files_to_patch = static_files + java_files
+
+    total_replacements = 0
+    for rel_path in files_to_patch:
+        file_path = APK_DIR / rel_path
+        if not file_path.exists():
+            print(f"  ⚠️  文件不存在，跳过: {rel_path}")
+            continue
+        count = replace_in_file(file_path, replacements)
+        if count:
+            print(f"  ✅ {rel_path}  ({count} 处)")
+            total_replacements += count
+
+    print()
+    print(f"🎉 完成！共替换 {total_replacements} 处")
+    print()
+    print("── 下一步 ──────────────────────────────")
+    print("  1. 替换应用 logo:  cp your-logo.png apk/store_icon.png")
+    print("  2. 生成所有图标:  python3 apk/bin/gen_icons")
+    print("  3. 构建 APK:      cd apk && ./gradlew assembleRelease")
+    print()
+
+
+if __name__ == "__main__":
+    main()
