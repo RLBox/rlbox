@@ -2,6 +2,60 @@
 
 namespace :validator do
   # ---------------------------------------------------------------------------
+  # validator:sync_schema_version
+  # Auto-sync VALIDATED_SCHEMA_VERSION in lib/data_pack_validator.rb to match
+  # the current db/schema.rb version. Call this after every db:migrate.
+  # ---------------------------------------------------------------------------
+  desc 'Sync data_pack_validator.rb VALIDATED_SCHEMA_VERSION with db/schema.rb'
+  task sync_schema_version: :environment do
+    validator_file = Rails.root.join('lib/data_pack_validator.rb')
+    schema_file    = Rails.root.join('db/schema.rb')
+
+    unless validator_file.exist?
+      puts '⚠️  lib/data_pack_validator.rb not found — skipping schema version sync.'
+      next
+    end
+
+    unless schema_file.exist?
+      puts '⚠️  db/schema.rb not found — skipping schema version sync.'
+      next
+    end
+
+    # Extract current schema version from db/schema.rb
+    schema_content  = File.read(schema_file)
+    schema_match    = schema_content.match(/ActiveRecord::Schema\[\d+\.\d+\]\.define\(version:\s*([\d_]+)\)/)
+    unless schema_match
+      puts '⚠️  Could not parse schema version from db/schema.rb — skipping.'
+      next
+    end
+    current_version = schema_match[1]
+
+    # Extract the version currently declared in data_pack_validator.rb
+    validator_content = File.read(validator_file)
+    old_match         = validator_content.match(/VALIDATED_SCHEMA_VERSION\s*=\s*'([\d_]+)'/)
+    unless old_match
+      puts '⚠️  VALIDATED_SCHEMA_VERSION constant not found in data_pack_validator.rb — skipping.'
+      next
+    end
+    old_version = old_match[1]
+
+    if current_version == old_version
+      puts "✅ Schema version already in sync: #{current_version}"
+      next
+    end
+
+    # Write updated version back
+    new_content = validator_content.gsub(
+      /VALIDATED_SCHEMA_VERSION\s*=\s*'[\d_]+'/,
+      "VALIDATED_SCHEMA_VERSION = '#{current_version}'"
+    )
+    File.write(validator_file, new_content)
+
+    puts '✅ data_pack_validator.rb schema version updated'
+    puts "   #{old_version}  →  #{current_version}"
+  end
+
+  # ---------------------------------------------------------------------------
   # Helper: load all app models so DataVersionable registry is fully populated
   # ---------------------------------------------------------------------------
   def load_all_models
