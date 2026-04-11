@@ -37,4 +37,8 @@ FileUtils.chdir APP_ROOT do
 
   puts "\n== Restarting application server =="
   system! 'bin/rails restart'
+
+  puts "\n== Configuring Git hooks =="
+  system! 'git config core.hooksPath .githooks'
+  puts "   Git hooks activated (.githooks/pre-push: blocks direct push to master/main)"
 end

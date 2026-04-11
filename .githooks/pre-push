@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# .githooks/pre-push
+# 禁止直接 push 到 master / main，必须通过 PR 合并。
+#
+# 安装方式（bin/setup 会自动执行）：
+#   git config core.hooksPath .githooks
+
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$branch" = "master" ] || [ "$branch" = "main" ]; then
+  echo ""
+  echo "❌ 禁止直接 push 到 $branch 分支！"
+  echo "   请新开一个分支，提 PR 后合并。"
+  echo ""
+  echo "   git checkout -b your-feature-branch"
+  echo "   git push origin your-feature-branch"
+  echo ""
+  exit 1
+fi
