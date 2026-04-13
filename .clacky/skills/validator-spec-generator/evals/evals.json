@@ -1,0 +1,104 @@
+{
+  "skill_name": "validator-spec-generator",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我为 app/validators/v001_book_budget_hotel_validator.rb 生成测试用例",
+      "expected_output": "应生成完整的 RSpec 测试文件，包含 metadata、prepare、verify、simulate 四个部分的测试，覆盖正常场景和边界条件",
+      "files": [
+        {
+          "path": "app/validators/v001_book_budget_hotel_validator.rb",
+          "content": "class V001BookBudgetHotelValidator < BaseValidator\n  self.validator_id = 'v001_book_budget_hotel_validator'\n  self.task_id = 'c0342467-8568-4bce-964c-4133c8367e7d'\n  self.title = '给张三预订后天入住深圳的酒店'\n  self.description = '预订一家深圳的经济型酒店，预算500元'\n\n  def prepare\n    {\n      city: '深圳',\n      budget: 500,\n      check_in_date: Date.current + 2.days,\n      check_out_date: Date.current + 3.days\n    }\n  end\n\n  def verify\n    add_assertion \"订单已创建\", weight: 20 do\n      expect(HotelBooking.count).to be > 0\n    end\n\n    add_assertion \"城市正确\", weight: 15 do\n      expect(@hotel_booking.city).to eq('深圳')\n    end\n\n    add_assertion \"预算范围内\", weight: 15 do\n      expect(@hotel_booking.price).to be <= 500\n    end\n  end\n\n  def simulate\n    @hotel_booking = HotelBooking.create!(\n      city: '深圳',\n      price: 450,\n      check_in_date: Date.current + 2.days,\n      check_out_date: Date.current + 3.days\n    )\n  end\nend"
+        }
+      ],
+      "assertions": [
+        {
+          "name": "包含 metadata 测试组",
+          "description": "spec 文件应包含完整的 metadata describe 块，测试 validator_id、task_id、title、description"
+        },
+        {
+          "name": "包含 prepare 测试组",
+          "description": "spec 文件应包含 prepare describe 块，测试所有返回的键值对"
+        },
+        {
+          "name": "包含 verify 测试组",
+          "description": "spec 文件应包含 verify describe 块，测试所有 add_assertion 的正常和失败场景"
+        },
+        {
+          "name": "包含 simulate 测试组",
+          "description": "spec 文件应包含 simulate describe 块，测试创建 HotelBooking 的副作用"
+        },
+        {
+          "name": "测试 prepare 返回的所有键",
+          "description": "应为 city、budget、check_in_date、check_out_date 各创建独立测试"
+        },
+        {
+          "name": "测试用例使用 RSpec 3 语法",
+          "description": "使用 expect 而非 should，使用 let 定义测试数据"
+        },
+        {
+          "name": "覆盖边界条件",
+          "description": "包含失败场景的测试（如订单不存在时的断言失败）"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "我需要测试这个 validator：app/validators/v002_weather_query_validator.rb，只有 prepare 和 verify，没有 simulate",
+      "expected_output": "应生成包含 metadata、prepare、verify 三个部分的测试，不包含 simulate 部分",
+      "files": [
+        {
+          "path": "app/validators/v002_weather_query_validator.rb",
+          "content": "class V002WeatherQueryValidator < BaseValidator\n  self.validator_id = 'v002_weather_query_validator'\n  self.task_id = 'a1234567-89ab-cdef-0123-456789abcdef'\n  self.title = '查询北京明天的天气'\n  self.description = '获取北京未来24小时的天气预报'\n\n  def prepare\n    {\n      city: '北京',\n      date: Date.tomorrow\n    }\n  end\n\n  def verify\n    add_assertion \"查询结果不为空\", weight: 30 do\n      expect(@weather_data).to be_present\n    end\n\n    add_assertion \"包含温度信息\", weight: 20 do\n      expect(@weather_data[:temperature]).to be_a(Numeric)\n    end\n  end\nend"
+        }
+      ],
+      "assertions": [
+        {
+          "name": "包含 metadata、prepare、verify 测试组",
+          "description": "spec 文件应包含这三个 describe 块，不包含 simulate 块"
+        },
+        {
+          "name": "不生成 simulate 测试",
+          "description": "由于 validator 没有 simulate 方法，spec 不应包含 simulate 相关测试"
+        },
+        {
+          "name": "测试 verify 的正常和失败场景",
+          "description": "应测试 @weather_data 存在和不存在的情况，以及温度字段类型的验证"
+        },
+        {
+          "name": "使用适当的 context 分组",
+          "description": "使用 context 块区分正常场景和失败场景"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "生成 validator 测试，路径是 app/validators/v003_calculate_tax_validator.rb",
+      "expected_output": "应生成包含边界条件测试的 RSpec 文件，特别是针对金额计算的精度测试",
+      "files": [
+        {
+          "path": "app/validators/v003_calculate_tax_validator.rb",
+          "content": "class V003CalculateTaxValidator < BaseValidator\n  self.validator_id = 'v003_calculate_tax_validator'\n  self.task_id = 'b9876543-21fe-dcba-9876-543210fedcba'\n  self.title = '计算商品税费'\n  self.description = '根据商品价格和税率计算应缴税费'\n\n  def prepare\n    {\n      price: 1000.0,\n      tax_rate: 0.13\n    }\n  end\n\n  def verify\n    add_assertion \"税费计算正确\", weight: 40 do\n      expect(@tax_amount).to eq(130.0)\n    end\n\n    add_assertion \"结果为数字类型\", weight: 10 do\n      expect(@tax_amount).to be_a(Numeric)\n    end\n\n    add_assertion \"精度保留两位小数\", weight: 10 do\n      expect(@tax_amount.round(2)).to eq(@tax_amount)\n    end\n  end\n\n  def simulate\n    price = 1000.0\n    tax_rate = 0.13\n    @tax_amount = (price * tax_rate).round(2)\n  end\nend"
+        }
+      ],
+      "assertions": [
+        {
+          "name": "包含完整的四个测试组",
+          "description": "metadata、prepare、verify、simulate 各自有独立的 describe 块"
+        },
+        {
+          "name": "测试精度相关的断言",
+          "description": "应特别测试「精度保留两位小数」这个断言，包含正常和失败场景"
+        },
+        {
+          "name": "simulate 测试覆盖边界条件",
+          "description": "应测试 0、很小的数、很大的数等边界情况"
+        },
+        {
+          "name": "测试计算逻辑的正确性",
+          "description": "验证 1000 * 0.13 = 130.0 的计算结果"
+        }
+      ]
+    }
+  ]
+}
