@@ -1,0 +1,104 @@
+{
+  "skill_name": "screenshot-to-html",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我有一个登录页面的截图在桌面上叫做 login_page.png，能帮我把它转成 HTML 吗？要用 Tailwind CSS，图标用 SVG 就行。",
+      "expected_output": "生成一个完整的 HTML 文件，包含 Tailwind CDN，使用语义化标签，按钮和输入框样式接近截图，图标用 SVG 替代，文件保存到桌面并提供文件链接",
+      "files": [],
+      "assertions": [
+        {
+          "id": 1,
+          "text": "生成的 HTML 包含 Tailwind CDN 链接",
+          "type": "presence"
+        },
+        {
+          "id": 2,
+          "text": "HTML 结构使用语义化标签（form, input, button）",
+          "type": "structure"
+        },
+        {
+          "id": 3,
+          "text": "包含 SVG 图标代码",
+          "type": "presence"
+        },
+        {
+          "id": 4,
+          "text": "文件保存到桌面并提供可点击链接",
+          "type": "output"
+        },
+        {
+          "id": 5,
+          "text": "HTML 是有效的（包含 DOCTYPE、meta 标签、title）",
+          "type": "validity"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "screenshot to html - I took 3 screenshots of the same product page as I scrolled down. They're in ~/Downloads: product_top.jpg, product_middle.jpg, product_bottom.jpg. Can you stitch them together into one HTML page?",
+      "expected_output": "分析三张截图，识别重叠部分，垂直拼接成一个完整页面，去除重复元素（如 sticky header），生成响应式 HTML，颜色和间距匹配截图",
+      "files": [],
+      "assertions": [
+        {
+          "id": 1,
+          "text": "识别并描述了多截图拼接场景",
+          "type": "comprehension"
+        },
+        {
+          "id": 2,
+          "text": "生成的页面包含顶部、中部、底部内容区域",
+          "type": "structure"
+        },
+        {
+          "id": 3,
+          "text": "避免重复元素（如 sticky header）",
+          "type": "logic"
+        },
+        {
+          "id": 4,
+          "text": "使用 Tailwind CSS",
+          "type": "requirement"
+        },
+        {
+          "id": 5,
+          "text": "响应式布局（包含 responsive classes）",
+          "type": "quality"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "把这个 UI 设计变成代码，图在 ~/Desktop/dashboard_design.png，是一个数据仪表板的界面，有图表、卡片、侧边栏那些。用 Tailwind 做，图表的地方先用占位图代替就好。",
+      "expected_output": "生成仪表板 HTML，包含侧边栏、导航栏、多个数据卡片组件、图表占位区域（SVG 矩形），使用 Tailwind grid 布局，响应式设计，颜色和排版接近原设计",
+      "files": [],
+      "assertions": [
+        {
+          "id": 1,
+          "text": "包含侧边栏导航结构",
+          "type": "structure"
+        },
+        {
+          "id": 2,
+          "text": "包含多个数据卡片组件",
+          "type": "components"
+        },
+        {
+          "id": 3,
+          "text": "图表区域用 SVG 占位图表示",
+          "type": "placeholder"
+        },
+        {
+          "id": 4,
+          "text": "使用 Tailwind Grid 布局",
+          "type": "layout"
+        },
+        {
+          "id": 5,
+          "text": "响应式设计（侧边栏在移动端可收起）",
+          "type": "responsive"
+        }
+      ]
+    }
+  ]
+}
