@@ -1,4 +1,4 @@
-FROM ghcr.io/clacky-ai/rails-base-template:latest
+FROM qinglion-registry.cn-hangzhou.cr.aliyuncs.com/qinglion/rails-base-template:latest
 
 WORKDIR /app
 
