@@ -1,6 +1,8 @@
 class AdminOplog < ApplicationRecord
   # System model — audit trail should be globally visible
-  data_version_excluded!
+  # 不使用 data_version 机制：移除 default_scope 和 before_create 回调
+  default_scope { unscope(where: :data_version) }
+  skip_callback :create, :before, :set_data_version
 
   belongs_to :administrator
 
