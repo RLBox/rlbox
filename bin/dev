@@ -34,8 +34,8 @@ if File.exist?(restart_marker)
   puts "Cleared restart marker"
 end
 
-# Install foreman if needed (fallback if overmind not available)
-unless system('which overmind > /dev/null 2>&1') || system('gem list --installed --exact --silent foreman')
+# Install foreman if needed
+unless system('gem list --installed --exact --silent foreman')
   puts "Installing foreman..."
   system('gem install foreman') || exit(1)
 end
@@ -50,11 +50,5 @@ ENV['PORT'] ||= app_port
 
 puts "Starting server on port #{ENV['PORT']}"
 
-# Prefer overmind if available (better tty support for background execution)
-if system('which overmind > /dev/null 2>&1')
-  puts "Using overmind (recommended for background execution)"
-  exec 'overmind', 'start', '-f', 'Procfile.dev', *ARGV
-else
-  puts "Using foreman (terminal foreground only)"
-  exec 'foreman', 'start', '-f', 'Procfile.dev', *ARGV
-end
+# Execute foreman
+exec 'foreman', 'start', '-f', 'Procfile.dev', *ARGV
