@@ -39,10 +39,67 @@ Install dependencies, setup db:
 $ ./bin/setup
 ```
 
-Start it:
+## Running the Project
+
+### Quick Start
+
+**First-time setup** (install required tools):
+```bash
+$ ./bin/install-dev-tools    # Install tmux & overmind (auto-detect OS)
 ```
-$ bin/dev
+
+**Start the project:**
+```bash
+$ bin/dev          # Auto-uses overmind if available, falls back to foreman
+$ bin/dev -D       # Run in background (daemon mode)
 ```
+
+**View logs** (when running in background):
+```bash
+$ overmind connect    # Press Ctrl+B then D to detach
+```
+
+**Stop the project:**
+```bash
+$ overmind quit       # Graceful shutdown
+# Or press Ctrl+C if running in foreground
+```
+
+**Restart a specific process:**
+```bash
+$ overmind restart web   # Restart Rails server
+$ overmind restart css   # Restart CSS watcher
+$ overmind restart js    # Restart JS bundler
+```
+
+### Manual Installation (if auto-install fails)
+
+<details>
+<summary>Click to expand manual installation steps</summary>
+
+**macOS:**
+```bash
+$ brew install overmind tmux
+```
+
+**Ubuntu/Debian:**
+```bash
+$ sudo apt install tmux
+$ wget https://github.com/DarthSim/overmind/releases/download/v2.5.1/overmind-v2.5.1-linux-amd64.gz
+$ gunzip overmind-v2.5.1-linux-amd64.gz
+$ sudo mv overmind-v2.5.1-linux-amd64 /usr/local/bin/overmind
+$ sudo chmod +x /usr/local/bin/overmind
+```
+
+</details>
+
+### Alternative: Terminal Foreground (No Installation Required)
+
+If you don't want to install overmind/tmux, you can run with foreman (comes with Rails):
+```bash
+$ bin/dev    # Will automatically use foreman if overmind not found
+```
+⚠️ Note: Foreman mode only works in terminal foreground, cannot run in background.
 
 ## Admin dashboard info
 

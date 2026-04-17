@@ -1,6 +1,93 @@
 ### Startup Command:
 
-bin/dev (Do not use `rails s` directly, as it may cause js/css loading issues)
+**Primary**: `bin/dev` (auto-detects overmind, falls back to foreman)
+**Background mode**: `bin/dev -D` (daemon mode, requires overmind + tmux)
+
+**Important**: `bin/dev` now automatically prefers overmind if installed. NO need to manually run `overmind start`.
+
+### Project Initialization Checklist (MANDATORY for First-Time Setup)
+
+**When user clones/uses this template for the FIRST time, MUST complete these steps BEFORE running the project:**
+
+1. **Install development tools (REQUIRED for background execution):**
+   ```bash
+   ./bin/install-dev-tools
+   ```
+   
+   This installs:
+   - **tmux**: Terminal multiplexer (provides pseudo-tty environment)
+   - **overmind**: Modern process manager for Procfile (auto-selected by bin/dev)
+   
+   **Detection**: Run `which overmind` and `which tmux`. If either returns empty, run the install script.
+   
+   **Why needed?**: Tailwind CSS watch requires active stdin. Background execution with foreman alone will fail. overmind + tmux provides proper tty environment.
+
+2. **Copy configuration files from examples:**
+   ```bash
+   cp config/application.yml.example config/application.yml
+   cp config/database.yml.example config/database.yml
+   ```
+
+3. **Set application name:**
+   ```bash
+   echo "YourProjectName" > config/appname.txt
+   ```
+
+4. **Install dependencies:**
+   ```bash
+   bundle install
+   npm install
+   ```
+
+5. **Create and setup database:**
+   ```bash
+   rails db:create
+   rails db:migrate
+   ```
+
+### Starting the Project
+
+**When user says "启动项目" / "start project" / "run the server":**
+
+1. **Simply run:**
+   ```bash
+   bin/dev           # Foreground mode (Ctrl+C to stop)
+   bin/dev -D        # Background mode (overmind quit to stop)
+   ```
+
+2. **Automatic behavior:**
+   - ✅ If overmind installed: Uses overmind (supports background `-D` flag)
+   - ✅ If overmind NOT installed: Falls back to foreman (terminal only)
+
+3. **If tools not installed:**
+   ```bash
+   ./bin/install-dev-tools    # One-time setup
+   ```
+
+**Viewing logs (background mode):**
+```bash
+overmind connect    # Press Ctrl+B then D to detach
+```
+
+**Stopping the project:**
+```bash
+overmind quit       # Graceful shutdown (background mode)
+# OR press Ctrl+C   # If running in foreground
+```
+
+**Restarting specific process:**
+```bash
+overmind restart web   # Restart Rails server only
+overmind restart css   # Restart CSS watcher only
+overmind restart js    # Restart JS bundler only
+```
+
+5. **NOW you can start the project:**
+   ```bash
+   bin/dev
+   ```
+
+**CRITICAL: If any of the above files are missing, `bin/dev` WILL FAIL. Always check and complete initialization first.**
 
 ### The project uses the following tech stack:
 
@@ -33,6 +120,24 @@ Restarting project is unnecessary because Rails automatically hot-reloads code c
 ## MANDATORY PROJECT WORKFLOW - FOLLOW EXACTLY IN THIS ORDER
 
 **STOP! Before creating ANY models or controllers, you MUST complete these steps first:**
+
+### Step 0: FIRST-TIME SETUP - Project Initialization (Only for new projects)
+**If `config/application.yml` or `config/database.yml` does NOT exist, this is a FRESH template clone. MUST run initialization:**
+
+```bash
+# Copy configuration templates
+cp config/application.yml.example config/application.yml
+cp config/database.yml.example config/database.yml
+
+# Install dependencies
+bundle install
+npm install
+
+# Create database
+rails db:create db:migrate
+```
+
+**After Step 0, proceed to Step 1.**
 
 ### Step 1: REQUIRED - Update Application Name and Design System First
 **ALWAYS start by updating the application name:** `echo "YourAppName" > config/appname.txt`

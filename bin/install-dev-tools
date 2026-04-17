@@ -1,0 +1,76 @@
+#!/bin/bash
+# RLBox 开发环境依赖安装脚本
+
+set -e
+
+echo "🦞 RLBox 开发环境依赖检查..."
+
+# 检测操作系统
+OS="unknown"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  OS="macos"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  OS="linux"
+fi
+
+echo "📍 检测到操作系统: $OS"
+
+# 检查 tmux
+echo ""
+echo "检查 tmux..."
+if command -v tmux &> /dev/null; then
+  echo "✅ tmux 已安装 ($(tmux -V))"
+else
+  echo "❌ tmux 未安装"
+  if [[ "$OS" == "macos" ]]; then
+    echo "正在安装 tmux..."
+    brew install tmux
+    echo "✅ tmux 安装完成"
+  elif [[ "$OS" == "linux" ]]; then
+    echo "正在安装 tmux..."
+    sudo apt update
+    sudo apt install -y tmux
+    echo "✅ tmux 安装完成"
+  else
+    echo "⚠️  请手动安装 tmux"
+  fi
+fi
+
+# 检查 overmind
+echo ""
+echo "检查 overmind..."
+if command -v overmind &> /dev/null; then
+  echo "✅ overmind 已安装 ($(overmind --version))"
+else
+  echo "❌ overmind 未安装"
+  if [[ "$OS" == "macos" ]]; then
+    echo "正在安装 overmind..."
+    brew install overmind
+    echo "✅ overmind 安装完成"
+  elif [[ "$OS" == "linux" ]]; then
+    echo "正在下载 overmind..."
+    VERSION="2.5.1"
+    ARCH=$(uname -m)
+    if [[ "$ARCH" == "x86_64" ]]; then
+      ARCH="amd64"
+    elif [[ "$ARCH" == "aarch64" ]]; then
+      ARCH="arm64"
+    fi
+    
+    wget -O /tmp/overmind.gz "https://github.com/DarthSim/overmind/releases/download/v${VERSION}/overmind-v${VERSION}-linux-${ARCH}.gz"
+    gunzip /tmp/overmind.gz
+    sudo mv /tmp/overmind /usr/local/bin/overmind
+    sudo chmod +x /usr/local/bin/overmind
+    echo "✅ overmind 安装完成"
+  else
+    echo "⚠️  请手动安装 overmind: https://github.com/DarthSim/overmind"
+  fi
+fi
+
+echo ""
+echo "✨ 所有依赖已准备就绪！"
+echo ""
+echo "现在可以运行项目了："
+echo "  $ overmind start          # 启动项目（后台）"
+echo "  $ overmind connect        # 查看日志"
+echo "  $ overmind kill           # 停止项目"
