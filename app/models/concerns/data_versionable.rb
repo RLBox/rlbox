@@ -2,122 +2,103 @@
 
 # DataVersionable Concern
 #
-# Validator framework data isolation via data_version.
+# 用于验证器框架的数据版本隔离机制。
 #
-# How it works:
-# 1. App start: SET SESSION app.data_version = '0', load baseline data
-# 2. Validator prepare: SET LOCAL app.data_version = '<uuid>'
-# 3. AI creates data: before_create sets data_version = <uuid>
-# 4. Validator verify: queries see data_version=0 (baseline) + <uuid> (test data)
-# 5. Cleanup: DELETE WHERE data_version = <uuid>
+# 主要功能：
+# 1. 自动注册模型到全局列表（DataVersionable.models）
+# 2. 在 before_create 时自动读取 PostgreSQL 会话变量 app.data_version
+# 3. 配合 RLS 策略实现基于版本的数据隔离
 #
-# Included in ApplicationRecord — applies automatically to all domain models.
+# 使用方式：
+#   class Flight < ApplicationRecord
+#     include DataVersionable
+#   end
 #
-# Models that should NOT be data-versioned (system/global models) call:
-#
-#   data_version_excluded!
-#
-# This registers them as intentionally excluded and is checked by the
-# DataVersion convention spec to distinguish "deliberately skipped" from
-# "accidentally missing column".
+# 工作流程：
+# 1. 系统启动：SET SESSION app.data_version = '0'，加载基线数据
+# 2. 验证器 prepare：SET LOCAL app.data_version = '123456'
+# 3. AI 创建数据：before_create 自动设置 data_version = 123456
+# 4. 验证器 verify：RLS 策略自动过滤，只看到 data_version=0 + 123456 的数据
+# 5. 回滚：DELETE WHERE data_version = 123456
 #
 module DataVersionable
   extend ActiveSupport::Concern
-
+  
   included do
+    # 在创建记录时自动设置 data_version
     before_create :set_data_version
-
-    # Apply version filter only if the table has a data_version column.
-    # Models without the column (system models, gem models) are unaffected.
-    default_scope {
-      column_names.include?('data_version') ? where(data_version: DataVersionable.current_versions) : all
-    }
-
+    
+    # 自动过滤 data_version：查询时只返回基线数据('0') + 当前会话的 data_version
+    default_scope { where(data_version: DataVersionable.current_versions) }
+    
+    # 自动注册模型到全局列表（调用模块级别的方法）
     DataVersionable.register_model(self)
   end
-
+  
+  # Class methods to be added to including classes
   class_methods do
+    # 当子类继承时自动注册
     def inherited(subclass)
       super
       DataVersionable.register_model(subclass)
     end
-
-    # Declare this model as intentionally excluded from data versioning.
-    #
-    # Use for system/global models that should not be scoped per validator session
-    # (e.g. Administrator, AdminOplog, ValidatorExecution).
-    #
-    # This does three things:
-    # 1. Registers the model in DataVersionable.excluded_models (used by convention spec)
-    # 2. Removes any data_version WHERE clause from queries
-    # 3. Skips the set_data_version before_create callback
-    #
-    # Usage:
-    #   class Administrator < ApplicationRecord
-    #     data_version_excluded!
-    #   end
-    def data_version_excluded!
-      DataVersionable.exclude_model(self)
-      default_scope { unscope(where: :data_version) }
-      skip_callback :create, :before, :set_data_version
-    end
   end
-
-  # --- Module-level registries ---
-
+  
+  # 模块级别的方法（用于管理全局模型列表）
   def self.models
     @versionable_models ||= []
   end
-
+  
   def self.register_model(model_class)
+    # 排除抽象类（如 ApplicationRecord）
+    # 抽象类没有数据库表，不需要数据版本管理
     return if model_class.abstract_class?
+    
     models << model_class unless models.include?(model_class)
   end
-
-  def self.excluded_models
-    @excluded_models ||= []
-  end
-
-  def self.exclude_model(model_class)
-    excluded_models << model_class unless excluded_models.include?(model_class)
-  end
-
-  # For test isolation only
+  
+  # 重置模型列表（仅用于测试）
   def self.reset_models!
     @versionable_models = []
-    @excluded_models = []
   end
-
-  # Returns the data_version values the current session should query.
-  # Returns ['0'] for baseline-only, or ['0', '<uuid>'] when in a validator session.
+  
+  # 获取当前会话应该查询的 data_version 列表
+  # 返回: ['0'] 或 ['0', 'current_session_version']
   def self.current_versions
+    # 从 PostgreSQL 读取当前会话的 app.data_version 变量
     version_str = ActiveRecord::Base.connection.execute(
       "SELECT current_setting('app.data_version', true) AS version"
     ).first&.dig('version')
-
+    
+    # 如果没有设置或为 '0'，只返回基线数据
+    # 如果设置了其他值，返回基线 + 当前版本
     if version_str.blank? || version_str == '0'
       ['0']
     else
       ['0', version_str]
     end
   rescue => e
+    # 如果查询失败（如连接池未初始化），默认返回基线版本
     Rails.logger.warn "[DataVersionable] Failed to get current_setting: #{e.message}"
     ['0']
   end
-
+  
   private
-
+  
+  # 设置 data_version（before_create 钩子）
   def set_data_version
-    return unless self.class.column_names.include?('data_version')
-
+    # 从 PostgreSQL 读取当前会话的 app.data_version 变量
     version_str = ActiveRecord::Base.connection.execute(
       "SELECT current_setting('app.data_version', true) AS version"
     ).first&.dig('version')
 
-    self.data_version = version_str.present? ? version_str : '0'
+    # 如果没有设置，默认为 '0'（基线数据）
+    # 注意：保持字符串类型，与 PostgreSQL session 变量类型一致
+    self.data_version = (version_str.present? ? version_str : '0')
 
+    # DEBUG: 仅在开发环境打印（生产环境太吵）
     if Rails.env.development?
-      Rails.logger.debug "[DataVersionable] #{self.class.name}#set_data_version: '#{version_str}' → data_version=#{self.data_version}"
+      Rails.logger.debug "[DataVersionable] #{self.class.name}#set_data_version: PostgreSQL returned '#{version_str}' → setting data_version=#{self.data_version}"
     end
   end
 end

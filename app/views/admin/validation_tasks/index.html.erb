@@ -1,0 +1,141 @@
+<% content_for :title, "Validation Tasks" %>
+
+<div class="container-xl">
+  <!-- Page Title -->
+  <div class="flex items-center justify-between mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-50">Validation Tasks</h1>
+    <div class="text-sm text-gray-500 dark:text-gray-400">
+      <%= @tasks.total_count %> tasks total
+    </div>
+  </div>
+
+  <!-- Filters Section -->
+  <div class="mb-6">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <!-- Directory Filter (Left) -->
+      <% unless @search_query.present? %>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Directory:</span>
+          
+          <!-- All Tasks Button -->
+          <%= link_to admin_validation_tasks_path, 
+              class: "px-4 py-2 rounded-lg text-sm font-medium transition-colors #{@selected_directory.nil? ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}" do %>
+            All (<%= @tasks.total_count %>)
+          <% end %>
+          
+          <!-- Directory Buttons -->
+          <% @directories.each do |directory| %>
+            <%= link_to admin_validation_tasks_path(directory: directory), 
+                class: "px-4 py-2 rounded-lg text-sm font-medium transition-colors #{@selected_directory == directory ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}" do %>
+              <%= directory %>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+      
+      <!-- Search Box (Right) -->
+      <div class="<%= @search_query.present? ? 'w-full' : 'ml-auto' %>">
+        <%= form_with url: admin_validation_tasks_path, method: :get, class: "max-w-md" do |f| %>
+          <div class="relative">
+            <%= f.text_field :q, 
+                value: @search_query,
+                placeholder: "Search by task ID, title or description",
+                class: "w-full px-4 py-2 pl-10 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" %>
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <% if @search_query.present? %>
+              <%= link_to admin_validation_tasks_path, class: "absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" do %>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+        <% if @search_query.present? %>
+          <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Found results for "<span class="font-semibold"><%= @search_query %></span>" - <%= @tasks.total_count %> results
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tasks Table -->
+  <div class="card bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+    <div class="card-body p-0">
+      <% if @tasks.any? %>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48">Task ID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">Task Name</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">Description</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">Timeout</th>
+              </tr>
+            </thead>
+            <tbody class="bg-gray-50 dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+              <% @tasks.each do |task| %>
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <td class="px-6 py-4 text-sm font-mono max-w-xs break-words">
+                    <%= link_to task[:validator_id], admin_validation_task_path(task[:validator_id]), class: "text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline" %>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <%= task[:task_id] %>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <%= task[:title] %>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 max-w-md">
+                    <%= task[:description] %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                    <%= task[:timeout] %>s
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <%= paginate @tasks, theme: 'custom', 
+              params: { directory: @selected_directory, q: @search_query }.compact,
+              outer_window: 2, 
+              window: 3 %>
+        </div>
+      <% else %>
+        <div class="text-center py-12">
+          <div class="w-24 h-24 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+            <svg class="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-medium text-gray-900 dark:text-gray-50 mb-2">
+            <% if @search_query.present? %>
+              No matching validation tasks found
+            <% elsif @selected_directory.present? %>
+              No validation tasks in this directory
+            <% else %>
+              No validation tasks yet
+            <% end %>
+          </h3>
+          <p class="text-gray-500 dark:text-gray-400">
+            <% if @search_query.present? %>
+              Try using different keywords or <%= link_to 'clear search', admin_validation_tasks_path, class: 'text-blue-600 dark:text-blue-400 hover:underline' %>
+            <% elsif @selected_directory.present? %>
+              尝试选择其他目录或查看All任务
+            <% else %>
+              Please create validators in the app/validators/ directory.
+            <% end %>
+          </p>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>

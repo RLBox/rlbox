@@ -1,0 +1,823 @@
+<% content_for :title, "Validation Task Details - #{@task[:title]}" %>
+
+<div class="container-xl">
+  <!-- Breadcrumb -->
+  <nav class="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 md:mb-6 gap-3" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+      <li class="inline-flex items-center">
+        <%= link_to admin_validation_tasks_path, class: "inline-flex items-center text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400" do %>
+          <svg class="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+          </svg>
+          Validation Tasks
+        <% end %>
+      </li>
+      <li aria-current="page">
+        <div class="flex items-center">
+          <svg class="w-4 h-4 md:w-6 md:h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+          </svg>
+          <span class="ml-1 text-xs md:text-sm font-medium text-gray-500 dark:text-gray-400">Task Details</span>
+        </div>
+      </li>
+    </ol>
+    
+    <div class="flex items-center gap-2">
+      <!-- Previous Task按钮 -->
+      <% if @prev_task %>
+        <%= link_to admin_validation_task_path(@prev_task[:validator_id]), class: "inline-flex items-center px-3 md:px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs md:text-sm font-medium rounded-lg transition-colors whitespace-nowrap" do %>
+          <svg class="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          <span class="md:hidden">Prev</span>
+          <span class="hidden md:inline">Previous Task</span>
+        <% end %>
+      <% else %>
+        <span class="inline-flex items-center px-3 md:px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs md:text-sm font-medium rounded-lg cursor-not-allowed whitespace-nowrap">
+          <span class="md:hidden">First</span>
+          <span class="hidden md:inline">First Task</span>
+        </span>
+      <% end %>
+      
+      <!-- Next Task按钮 -->
+      <% if @next_task %>
+        <%= link_to admin_validation_task_path(@next_task[:validator_id]), class: "inline-flex items-center px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-medium rounded-lg transition-colors whitespace-nowrap" do %>
+          <span class="md:hidden">Next</span>
+          <span class="hidden md:inline">Next Task</span>
+          <svg class="w-3.5 h-3.5 md:w-4 md:h-4 ml-1.5 md:ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        <% end %>
+      <% else %>
+        <span class="inline-flex items-center px-3 md:px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs md:text-sm font-medium rounded-lg cursor-not-allowed whitespace-nowrap">
+          <span class="md:hidden">Last</span>
+          <span class="hidden md:inline">Last Task</span>
+        </span>
+      <% end %>
+    </div>
+  </nav>
+
+  <!-- Task Info Card -->
+  <div class="card bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 mb-4 md:mb-6">
+    <div class="card-body p-4 md:p-6">
+      <div class="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-3">
+        <div class="flex-1">
+          <h1 class="text-lg md:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-50 mb-2 leading-tight"><%= @task[:title] %></h1>
+          <p class="text-sm md:text-base text-gray-600 dark:text-gray-300"><%= @task[:description] %></p>
+        </div>
+        <div class="text-left md:text-right flex-shrink-0">
+          <div class="inline-flex items-center px-2 md:px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 whitespace-nowrap">
+            Timeout: <%= @task[:timeout] %>s
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <dl class="grid grid-cols-1 gap-4">
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Task ID</dt>
+            <dd class="mt-1 text-sm font-mono text-gray-900 dark:text-gray-100"><%= @task[:validator_id] %></dd>
+          </div>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">UUID (task_id)</dt>
+            <dd class="mt-1 text-xs md:text-sm font-mono text-gray-600 dark:text-gray-400 break-all"><%= @task[:task_id] %></dd>
+          </div>
+          
+          <!-- Assertions条件表格 -->
+          <% if @assertions&.any? %>
+          <div>
+            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">VerifyAssertions（<%= @assertions.size %> 项）</dt>
+            <dd class="mt-1">
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                  <thead class="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">#</th>
+                      <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">AssertionsName</th>
+                      <th scope="col" class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    <% @assertions.each_with_index do |assertion, index| %>
+                    <tr>
+                      <td class="px-3 py-2 whitespace-nowrap text-gray-500 dark:text-gray-400"><%= index + 1 %></td>
+                      <td class="px-3 py-2 text-gray-900 dark:text-gray-100"><%= assertion[:name] %></td>
+                      <td class="px-3 py-2 whitespace-nowrap text-right text-gray-900 dark:text-gray-100"><%= assertion[:weight] %>%</td>
+                    </tr>
+                    <% end %>
+                  </tbody>
+                  <tfoot class="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      <td colspan="2" class="px-3 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">总计：</td>
+                      <td class="px-3 py-2 whitespace-nowrap text-right text-sm font-bold text-gray-900 dark:text-gray-100"><%= @assertions.sum { |a| a[:weight] } %>%</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </dd>
+          </div>
+          <% end %>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Panel -->
+  <div class="card bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 mb-4 md:mb-6">
+    <div class="card-body p-4 md:p-6">
+      <h2 class="text-lg md:text-xl font-semibold text-gray-900 dark:text-gray-50 mb-3 md:mb-4">任务操作</h2>
+      
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 mb-4 md:mb-6">
+        <!-- 启动按钮 -->
+        <button 
+          type="button"
+          id="start-btn"
+          class="btn bg-green-600 hover:bg-green-700 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base whitespace-nowrap">
+          <svg class="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span>启动新会话</span>
+        </button>
+        
+        <!-- 清空所有会话按钮 -->
+        <button 
+          type="button"
+          id="clear-all-btn"
+          class="btn bg-gray-500 hover:bg-gray-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base whitespace-nowrap hidden">
+          <svg class="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          <span>清空所有会话</span>
+        </button>
+      </div>
+
+      <!-- Active Sessions列表 -->
+      <div id="sessions-container" class="hidden mb-4">
+        <h3 class="text-base md:text-lg font-medium text-gray-900 dark:text-gray-50 mb-2 md:mb-3">Active Sessions列表</h3>
+        <div id="sessions-list" class="space-y-2 md:space-y-3">
+          <!-- 会话卡片将动态插入这里 -->
+        </div>
+      </div>
+
+      <!-- 操作提示 -->
+      <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 md:p-4">
+        <div class="flex">
+          <svg class="w-4 h-4 md:w-5 md:h-5 text-yellow-600 dark:text-yellow-400 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          <div class="text-xs md:text-sm text-yellow-800 dark:text-yellow-200">
+            <p class="font-medium mb-1">操作步骤：</p>
+            <ol class="list-decimal list-inside space-y-1">
+              <li>点击"启动新会话"按钮创建Verify会话（可创建多个）</li>
+              <li>点击"复制访问链接"按钮，在<strong>无痕模式</strong>下打开链接进行测试</li>
+              <li>在应用中完成相应的测试操作</li>
+              <li>点击对应会话的"Verify"按钮查看Verify得分</li>
+              <li>Verify完成后，会话将从列表中Remove</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <% if @is_multi_turn %>
+  <!-- Multi-Turn Dialogue Panel -->
+  <div class="card bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 mb-6">
+    <div class="card-body p-6">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-50 mb-4">Multi-Turn Dialogue Test</h2>
+      
+      <!-- Session Selection -->
+      <div class="mb-4">
+        <label for="dialog-session-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          选择会话进行对话测试：
+        </label>
+        <select 
+          id="dialog-session-select" 
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <option value="">-- 请先Create Session --</option>
+        </select>
+      </div>
+
+      <!-- Dialogue History -->
+      <div 
+        id="dialog-history" 
+        class="mb-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg h-96 overflow-y-auto">
+        <p class="text-gray-500 dark:text-gray-400 text-center py-8">选择会话后开始对话...</p>
+      </div>
+
+      <!-- Input Box -->
+      <div class="flex items-start space-x-3">
+        <textarea 
+          id="dialog-input" 
+          rows="3" 
+          placeholder="输入您的消息（作为 Agent）..."
+          disabled
+          class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed"></textarea>
+        <button 
+          type="button"
+          id="send-message-btn"
+          disabled
+          class="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+          </svg>
+          <span>Send</span>
+        </button>
+      </div>
+
+      <!-- Tips -->
+      <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mt-4">
+        <div class="flex">
+          <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <div class="text-sm text-blue-800 dark:text-blue-200">
+            <p class="font-medium mb-1">使用说明：</p>
+            <ul class="list-disc list-inside space-y-1">
+              <li>先点击"启动新会话"按钮Create Session</li>
+              <li>在下拉框中选择要测试的会话</li>
+              <li>在输入框中模拟 Agent 向UserSend Message</li>
+              <li>AI Simul User 会自动回复，模拟真实User行为</li>
+              <li>对话完成后，点击"Verify"按钮查看得分</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <% end %>
+
+  <!-- Result Panel -->
+  <div id="result-panel" class="card bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hidden">
+    <div class="card-body p-4 md:p-6">
+      <h2 class="text-lg md:text-xl font-semibold text-gray-900 dark:text-gray-50 mb-3 md:mb-4">Verify结果</h2>
+      <div id="result-content"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  
+  const taskId = '<%= @task[:validator_id] %>';  // 使用 validator_id 调用 API
+  const sessions = [];  // 存储多个会话 {id, createdAt}
+
+  const startBtn = document.getElementById('start-btn');
+  const clearAllBtn = document.getElementById('clear-all-btn');
+  const sessionsContainer = document.getElementById('sessions-container');
+  const sessionsList = document.getElementById('sessions-list');
+  const resultPanel = document.getElementById('result-panel');
+  const resultContent = document.getElementById('result-content');
+
+  // 使用事件委托来处理动态添加的按钮，避免重复绑定
+  sessionsList.addEventListener('click', (e) => {
+    const verifyBtn = e.target.closest('.verify-session-btn');
+    const removeBtn = e.target.closest('.remove-session-btn');
+    
+    if (verifyBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const sessionId = verifyBtn.dataset.sessionId;
+      if (sessionId) verifySession(sessionId);
+    } else if (removeBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const sessionId = removeBtn.dataset.sessionId;
+      if (sessionId) removeSession(sessionId);
+    }
+  });
+
+  // 启动新会话
+  startBtn.addEventListener('click', async () => {
+    // 禁用按钮
+    startBtn.disabled = true;
+    startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    const originalBtnHtml = startBtn.innerHTML;
+    startBtn.innerHTML = '<span class="inline-block animate-spin mr-2">⏳</span>启动中...';
+    
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const data = await response.json();
+      
+      // 适配新的响应格式：从 verification.config.params.session_id 提取
+      const sessionId = data.verification?.config?.params?.session_id;
+      
+      if (response.ok && sessionId) {
+        // 添加新会话到列表
+        const session = {
+          id: sessionId,
+          createdAt: new Date().toLocaleString('zh-CN')
+        };
+        sessions.push(session);
+        
+        // 更新UI
+        renderSessions();
+        showToast('Session created，请进行测试操作', 'success');
+      } else {
+        throw new Error(data.error || '启动Failed');
+      }
+    } catch (error) {
+      console.error('启动任务Failed:', error);
+      showToast(`启动Failed: ${error.message}`, 'error');
+    } finally {
+      // 恢复启动按钮
+      startBtn.innerHTML = originalBtnHtml;
+      startBtn.disabled = false;
+      startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  });
+
+  // 清空所有会话
+  clearAllBtn.addEventListener('click', () => {
+    if (confirm('确定要清空所有会话吗？')) {
+      sessions.length = 0;
+      renderSessions();
+      resultPanel.classList.add('hidden');
+      showToast('已清空所有会话', 'success');
+    }
+  });
+
+  // 渲染会话列表
+  function renderSessions() {
+    if (sessions.length === 0) {
+      sessionsContainer.classList.add('hidden');
+      clearAllBtn.classList.add('hidden');
+      <% if @is_multi_turn %>
+      updateDialogSessionSelect();
+      <% end %>
+      return;
+    }
+    
+    sessionsContainer.classList.remove('hidden');
+    clearAllBtn.classList.remove('hidden');
+    <% if @is_multi_turn %>
+    updateDialogSessionSelect();
+    <% end %>
+    
+    sessionsList.innerHTML = sessions.map((session, index) => `
+      <div class="p-3 md:p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm" data-session-id="${session.id}">
+        <div class="flex flex-col md:flex-row md:items-center gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 whitespace-nowrap">
+                会话 #${index + 1}
+              </span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">${session.createdAt}</span>
+            </div>
+            <div class="flex items-center" data-controller="clipboard">
+              <input type="hidden" data-clipboard-target="source" value="${window.location.origin}/?session_id=${session.id}" />
+              <button 
+                type="button"
+                data-action="click->clipboard#copy"
+                class="btn bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-2 md:px-3 py-1.5 rounded transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap">
+                <svg class="w-3 h-3 md:w-3.5 md:h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+                <span class="hidden sm:inline">复制访问链接</span>
+                <span class="sm:hidden">Copy Link</span>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button 
+              type="button"
+              class="verify-session-btn btn bg-blue-600 hover:bg-blue-700 text-white px-3 md:px-4 py-1.5 md:py-2 rounded transition-colors flex items-center gap-1.5 text-xs md:text-sm whitespace-nowrap"
+              data-session-id="${session.id}">
+              <svg class="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span>Verify</span>
+            </button>
+            <button 
+              type="button"
+              class="remove-session-btn btn bg-red-500 hover:bg-red-600 text-white px-2 md:px-3 py-1.5 md:py-2 rounded transition-colors"
+              data-session-id="${session.id}">
+              <svg class="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    
+    // 事件监听器已Passed事件委托绑定到 sessionsList 容器，无需重复绑定
+  }
+
+  // Verify指定会话
+  async function verifySession(sessionId) {
+    const btn = document.querySelector(`.verify-session-btn[data-session-id="${sessionId}"]`);
+    if (!btn) return;
+    
+    // 禁用按钮
+    btn.disabled = true;
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    const originalBtnHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="inline-block animate-spin mr-2">⏳</span>Verify中...';
+    
+    try {
+      const response = await fetch('/api/verify/run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_id: taskId,
+          session_id: sessionId
+        })
+      });
+      
+      const data = await response.json();
+      
+      // 显示结果面板
+      resultPanel.classList.remove('hidden');
+      resultPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      if (data.score !== undefined) {
+        const scorePercent = (data.score * 100).toFixed(0);
+        const isPass = data.score >= 0.6;
+        
+        // 生成Assertions列表 HTML
+        const assertionsHtml = data.assertions && data.assertions.length > 0 ? `
+          <div class="mt-4 md:mt-6">
+            <h4 class="text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100 mb-2 md:mb-3 flex items-center">
+              <svg class="w-4 h-4 md:w-5 md:h-5 mr-2 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+              </svg>
+              Assertions检查详情
+            </h4>
+            <div class="space-y-2 md:space-y-3">
+              ${data.assertions.map((assertion, index) => {
+                const isPassed = assertion.passed;
+                const bgColor = isPassed ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20';
+                const borderColor = isPassed ? 'border-green-200 dark:border-green-700' : 'border-red-200 dark:border-red-700';
+                const textColor = isPassed ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200';
+                const iconColor = isPassed ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+                
+                return `
+                  <div class="${bgColor} border ${borderColor} rounded-lg p-3 md:p-4">
+                    <div class="flex flex-col sm:flex-row sm:items-start gap-3">
+                      <div class="flex items-start flex-1 min-w-0">
+                        <div class="mt-0.5 mr-2 md:mr-3 flex-shrink-0">
+                          <svg class="w-4 h-4 md:w-5 md:h-5 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            ${isPassed 
+                              ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+                              : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+                            }
+                          </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div class="text-xs md:text-sm font-medium ${textColor} mb-1 break-words">
+                            ${index + 1}. ${assertion.name}
+                          </div>
+                          ${assertion.error ? `
+                            <div class="text-xs md:text-sm text-red-700 dark:text-red-300 mt-2 pl-3 md:pl-4 border-l-2 border-red-400 dark:border-red-600 break-words">
+                              ${assertion.error}
+                            </div>
+                          ` : ''}
+                        </div>
+                      </div>
+                      <div class="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 flex-shrink-0 self-start">
+                        <div class="inline-flex items-center px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-xs font-medium whitespace-nowrap ${isPassed ? 'bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200'}">
+                          Weight: ${assertion.weight}%
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          ${isPassed ? `+${assertion.weight}分` : '0分'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
+        
+        resultContent.innerHTML = `
+          <div class="rounded-xl overflow-hidden ${isPass ? 'bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-800/10' : 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-800/10'} border ${isPass ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'} shadow-lg">
+            <!-- 顶部会话ID -->
+            <div class="px-4 md:px-6 pt-3 md:pt-4 pb-2">
+              <span class="inline-block text-[10px] md:text-xs font-mono ${isPass ? 'text-green-600/70 dark:text-green-400/70 bg-green-100/50 dark:bg-green-800/30' : 'text-red-600/70 dark:text-red-400/70 bg-red-100/50 dark:bg-red-800/30'} px-2 py-1 rounded">会话 ID: ${sessionId}</span>
+            </div>
+            
+            <!-- 主要结果区域 -->
+            <div class="px-4 md:px-6 pb-4 md:pb-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
+                <div class="flex items-center gap-3 md:gap-4">
+                  <div class="${isPass ? 'bg-green-500 dark:bg-green-600' : 'bg-red-500 dark:bg-red-600'} rounded-full p-2.5 md:p-3 flex-shrink-0 shadow-md">
+                    <svg class="w-7 h-7 md:w-9 md:h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      ${isPass 
+                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>'
+                      }
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="text-xl md:text-2xl font-bold ${isPass ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'} mb-0.5">
+                      ${isPass ? '✓ VerifyPassed' : '✗ VerifyFailed'}
+                    </h3>
+                    <p class="text-xs md:text-sm ${isPass ? 'text-green-700/80 dark:text-green-300/80' : 'text-red-700/80 dark:text-red-300/80'}">
+                      ${isPass ? '所有检查项均已Passed' : '存在未Passed的检查项'}
+                    </p>
+                  </div>
+                </div>
+                <div class="text-left sm:text-right flex-shrink-0">
+                  <div class="text-4xl md:text-5xl font-extrabold ${isPass ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} leading-none">
+                    ${scorePercent}<span class="text-2xl md:text-3xl">%</span>
+                  </div>
+                  <div class="text-xs md:text-sm font-medium ${isPass ? 'text-green-600/70 dark:text-green-400/70' : 'text-red-600/70 dark:text-red-400/70'} mt-1">
+                    总得分
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            ${assertionsHtml}
+            
+            ${data.reason && data.reason !== '无详细信息' ? `
+              <div class="px-4 md:px-6 pb-4 md:pb-5 pt-2">
+                <div class="${isPass ? 'bg-green-100/50 dark:bg-green-800/20 border-green-200 dark:border-green-700' : 'bg-red-100/50 dark:bg-red-800/20 border-red-200 dark:border-red-700'} border rounded-lg p-3 md:p-4">
+                  <h4 class="text-sm md:text-base font-semibold ${isPass ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'} mb-2 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                    </svg>
+                    概要信息
+                  </h4>
+                  <p class="text-xs md:text-sm ${isPass ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'} whitespace-pre-wrap break-words leading-relaxed">${data.reason}</p>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+        
+        showToast(`Verify完成，得分: ${scorePercent}%`, isPass ? 'success' : 'error');
+        
+        // Verify完成后延迟5s再从列表中Remove该会话（给User时间查看结果）
+        setTimeout(() => {
+          removeSession(sessionId);
+        }, 5000);
+      } else {
+        throw new Error(data.reason || 'VerifyFailed');
+      }
+    } catch (error) {
+      console.error('Verify任务Failed:', error);
+      resultPanel.classList.remove('hidden');
+      resultContent.innerHTML = `
+        <div class="p-6 rounded-lg bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800">
+          <div class="mb-3">
+            <span class="text-xs font-mono text-gray-500 dark:text-gray-400">会话 ID: ${sessionId}</span>
+          </div>
+          <div class="flex items-center mb-4">
+            <div class="bg-red-100 dark:bg-red-800 rounded-full p-3 mr-4">
+              <svg class="w-8 h-8 text-red-600 dark:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-red-700 dark:text-red-300">Verify出错</h3>
+              <p class="text-sm text-red-600 dark:text-red-400">Verify过程中发生错误</p>
+            </div>
+          </div>
+          <div class="border-t border-red-200 dark:border-red-800 pt-4 mt-4">
+            <p class="text-red-700 dark:text-red-300">${error.message}</p>
+          </div>
+        </div>
+      `;
+      showToast(`VerifyFailed: ${error.message}`, 'error');
+      
+      // 恢复按钮Status
+      btn.innerHTML = originalBtnHtml;
+      btn.disabled = false;
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  }
+
+  // Remove指定会话
+  function removeSession(sessionId) {
+    const index = sessions.findIndex(s => s.id === sessionId);
+    if (index > -1) {
+      sessions.splice(index, 1);
+      renderSessions();
+    }
+  }
+
+  // Toast 提示函数
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+    
+    toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.classList.add('animate-fade-out');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  <% if @is_multi_turn %>
+  // ==================== 多轮对话功能 ====================
+  const dialogSessionSelect = document.getElementById('dialog-session-select');
+  const dialogHistory = document.getElementById('dialog-history');
+  const dialogInput = document.getElementById('dialog-input');
+  const sendMessageBtn = document.getElementById('send-message-btn');
+  let currentDialogSessionId = null;
+  let dialogTurns = [];  // 存储当前会话的Conversation History
+
+  // 更新对话会话下拉框
+  function updateDialogSessionSelect() {
+    if (sessions.length === 0) {
+      dialogSessionSelect.innerHTML = '<option value="">-- 请先Create Session --</option>';
+      dialogInput.disabled = true;
+      sendMessageBtn.disabled = true;
+      return;
+    }
+
+    dialogSessionSelect.innerHTML = '<option value="">-- 选择会话 --</option>' + 
+      sessions.map((session, index) => 
+        `<option value="${session.id}">会话 #${index + 1} (${session.createdAt})</option>`
+      ).join('');
+  }
+
+  // 监听会话选择变化
+  dialogSessionSelect.addEventListener('change', async (e) => {
+    currentDialogSessionId = e.target.value;
+    
+    if (currentDialogSessionId) {
+      dialogInput.disabled = false;
+      sendMessageBtn.disabled = false;
+      dialogTurns = [];
+      
+      // 加载该会话的Conversation History
+      try {
+        const response = await fetch(`/api/dialog/history?session_id=${currentDialogSessionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          dialogTurns = data.turns.map(turn => ({
+            role: turn.role,
+            message: turn.message,
+            metadata: { turn_number: turn.turn_number }
+          }));
+        }
+      } catch (error) {
+        console.error('加载Conversation HistoryFailed:', error);
+      }
+      
+      renderDialogHistory();
+    } else {
+      dialogInput.disabled = true;
+      sendMessageBtn.disabled = true;
+      dialogHistory.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-8">选择会话后开始对话...</p>';
+    }
+  });
+
+  // 渲染Conversation History
+  function renderDialogHistory() {
+    if (dialogTurns.length === 0) {
+      dialogHistory.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-8">开始与 AI Simul User 对话...</p>';
+      return;
+    }
+
+    dialogHistory.innerHTML = dialogTurns.map(turn => {
+      const isAgent = turn.role === 'agent';
+      return `
+        <div class="mb-4 flex ${isAgent ? 'justify-end' : 'justify-start'}">
+          <div class="max-w-[80%]">
+            <div class="flex items-center mb-1 ${isAgent ? 'justify-end' : 'justify-start'}">
+              <span class="text-xs font-medium ${isAgent ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}">
+                ${isAgent ? 'Agent (您)' : 'Simul User (AI)'}
+              </span>
+            </div>
+            <div class="${isAgent ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100' : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'} px-4 py-3 rounded-lg">
+              <p class="text-sm whitespace-pre-wrap">${escapeHtml(turn.message)}</p>
+            </div>
+            ${turn.metadata ? `
+              <div class="mt-1 text-xs text-gray-500 dark:text-gray-400 ${isAgent ? 'text-right' : 'text-left'}">
+                轮次 ${turn.metadata.turn_number || ''}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    // 滚动到底部
+    dialogHistory.scrollTop = dialogHistory.scrollHeight;
+  }
+
+  // HTML 转义函数
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Send Message
+  async function sendDialogMessage() {
+    const message = dialogInput.value.trim();
+    if (!message || !currentDialogSessionId) return;
+
+    // 禁用输入和按钮
+    dialogInput.disabled = true;
+    sendMessageBtn.disabled = true;
+    const originalBtnHtml = sendMessageBtn.innerHTML;
+    sendMessageBtn.innerHTML = '<span class="inline-block animate-spin mr-2">⏳</span>Send中...';
+
+    try {
+      // 添加 Agent 消息到历史
+      dialogTurns.push({
+        role: 'agent',
+        message: message
+      });
+      renderDialogHistory();
+      dialogInput.value = '';
+
+      // 调用 API
+      const response = await fetch('/api/dialog/message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: currentDialogSessionId,
+          agent_message: message
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.simul_user_message) {
+        // 添加 Simul User 回复到历史
+        dialogTurns.push({
+          role: 'simul_user',
+          message: data.simul_user_message,
+          metadata: data.metadata
+        });
+        renderDialogHistory();
+
+        // 检查是否应该结束对话
+        if (!data.should_continue) {
+          showToast('对话已结束，可以进行Verify了', 'info');
+        }
+      } else {
+        throw new Error(data.error || 'Send MessageFailed');
+      }
+    } catch (error) {
+      console.error('Send MessageFailed:', error);
+      showToast(`SendFailed: ${error.message}`, 'error');
+      // Remove最后一条 Agent 消息（因为Failed了）
+      dialogTurns.pop();
+      renderDialogHistory();
+    } finally {
+      // 恢复输入和按钮
+      sendMessageBtn.innerHTML = originalBtnHtml;
+      dialogInput.disabled = false;
+      sendMessageBtn.disabled = false;
+      dialogInput.focus();
+    }
+  }
+
+  // 绑定Send按钮事件
+  sendMessageBtn.addEventListener('click', sendDialogMessage);
+
+  // 绑定 Enter 键Send（Shift+Enter 换行）
+  dialogInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendDialogMessage();
+    }
+  });
+  <% end %>
+  // ==================== 多轮对话功能结束 ====================
+
+  // 添加动画样式
+  // 添加动画样式（如果不存在）
+  if (!document.getElementById('validation-task-animations')) {
+    const style = document.createElement('style');
+    style.id = 'validation-task-animations';
+    style.textContent = `
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes fade-out {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-10px); }
+      }
+      .animate-fade-in { animation: fade-in 0.3s ease-out; }
+      .animate-fade-out { animation: fade-out 0.3s ease-out; }
+    `;
+    document.head.appendChild(style);
+  }
+})();
+</script>

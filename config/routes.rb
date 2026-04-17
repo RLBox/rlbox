@@ -52,6 +52,12 @@ Rails.application.routes.draw do
 
   # API routes
   namespace :api do
+    # Validation tasks API
+    post 'tasks/:task_id/start', to: 'tasks#start'
+    post 'verify/run', to: 'tasks#verify'
+    delete 'sessions/:session_id', to: 'tasks#remove_session'
+    delete 'sessions', to: 'tasks#clear_all_sessions'
+    
     namespace :v1 do
       # API authentication routes
       post 'login', to: 'sessions#login'
@@ -71,6 +77,7 @@ Rails.application.routes.draw do
     resources :users, only: [:index, :show]
     resources :admin_oplogs, only: [:index, :show]
     resources :administrators
+    resources :validation_tasks
     get 'login', to: 'sessions#new', as: :login
     post 'login', to: 'sessions#create'
     delete 'logout', to: 'sessions#destroy', as: :logout

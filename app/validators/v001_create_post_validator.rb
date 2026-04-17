@@ -6,49 +6,48 @@
 # with status "published".
 #
 # Demonstrates:
-#   - requires_ui: enforces that the frontend form exposes status=[draft,published]
 #   - data_version isolation: created post is scoped to this session only
 #   - add_assertion: RSpec-style weighted assertions
 #
 class V001CreatePostValidator < BaseValidator
   self.validator_id   = 'v001_create_post'
-  self.title          = '在系统中创建一篇帖子'
-  self.description    = '请创建一篇标题为"Hello World"、状态为"published"的帖子。'
+  self.title          = 'Create a Post in the System'
+  self.description    = 'Please create a post with title "Hello World" and status "published".'
   self.timeout_seconds = 60
-
-  # Declares that this validator requires the frontend to expose status=[draft,published].
-  # If _form.html.erb doesn't have the annotation, execute_prepare raises
-  # BaseValidator::UiCapabilityMissingError before any test data is created.
-  requires_ui :posts, :title, :body, status: %i[draft published]
 
   def prepare
     # Baseline data (e.g. users) is already loaded by the initializer.
     # Nothing extra to set up for this simple validator.
-    {}
+    {
+      task: 'Create a post titled "Hello World" with status "published"',
+      hint: 'Navigate to Posts section and create a new post'
+    }
   end
 
   def verify
     add_assertion('A post titled "Hello World" exists', weight: 50) do
-      post = Post.find_by(title: 'Hello World')
-      expect(post).not_to be_nil
+      post = Post.find_by(title: 'Hello World', data_version: @data_version)
+      expect(post).not_to be_nil, 'No post with title "Hello World" found'
     end
 
     add_assertion('Post status is "published"', weight: 50) do
-      post = Post.find_by(title: 'Hello World')
-      expect(post&.status).to eq('published')
+      post = Post.find_by(title: 'Hello World', data_version: @data_version)
+      expect(post&.status).to eq('published'), 
+        "Post status is incorrect. Expected: published, Actual: #{post&.status}"
     end
   end
 
   # Used by execute_simulate (automated regression mode).
   def simulate
-    user = User.first
-    raise 'No users in baseline data — add a data pack to app/validators/support/data_packs/' unless user
+    user = User.where(data_version: 0).first
+    raise 'No users in baseline data' unless user
 
     Post.create!(
       title:  'Hello World',
       status: 'published',
       body:   'Created by V001CreatePostValidator simulate.',
-      user:   user
+      user:   user,
+      data_version: @data_version
     )
 
     { message: 'Created post "Hello World" with status "published".' }
