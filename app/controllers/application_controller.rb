@@ -47,7 +47,35 @@ class ApplicationController < ActionController::Base
 
     if session_record = find_session_record
       Current.session = session_record
+    else
+      auto_login_default_user
     end
+  end
+
+  def auto_login_default_user
+    default_email = 'demo@rlbox.ai'
+    default_password = 'password123'
+
+    user = User.find_by(email: default_email)
+    unless user
+      user = User.create!(
+        email: default_email,
+        password: default_password,
+        password_confirmation: default_password,
+        verified: true
+      )
+    end
+
+    session_record = user.sessions.create!(
+      user_agent: Current.user_agent,
+      ip_address: Current.ip_address
+    )
+
+    cookies.signed.permanent[:session_token] = { value: session_record.id, httponly: true, same_site: :lax }
+    Current.session = session_record
+  rescue => e
+    Rails.logger.error "Auto-login failed: #{e.message}"
+    nil
   end
 
   # Restore validator execution context for the current request.
