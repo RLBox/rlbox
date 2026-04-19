@@ -207,7 +207,30 @@ class BaseValidator
   
   class << self
     attr_accessor :validator_id, :task_id, :title, :description, :timeout_seconds
-    
+
+    # DSL: declare UI requirements for this validator.
+    # Usage:
+    #   requires_ui :posts, :title, :body, status: [:draft, :published]
+    def requires_ui(resource, *fields_and_values)
+      @ui_requirements ||= []
+      fields_and_values.each do |item|
+        if item.is_a?(Hash)
+          item.each do |field, values|
+            Array(values).each do |value|
+              @ui_requirements << { resource: resource.to_s, field: field.to_s, value: value.to_s, check: :value }
+            end
+          end
+        else
+          @ui_requirements << { resource: resource.to_s, field: item.to_s, check: :presence }
+        end
+      end
+    end
+
+    # Returns array of UI requirement declarations for this validator.
+    def ui_requirements
+      @ui_requirements ||= []
+    end
+
     # 返回验证器元信息
     def metadata
       {

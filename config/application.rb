@@ -37,6 +37,9 @@ module Myapp
     config.middleware.insert_before Rails::Rack::Logger, ClackyHealthCheck
     config.middleware.use ValidatorSessionBinder
 
+    # Exclude data_packs scripts from Zeitwerk autoloading (they are plain Ruby scripts, not constants)
+    Rails.autoloaders.main.ignore(Rails.root.join('app/validators/support'))
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files

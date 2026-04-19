@@ -42,6 +42,11 @@ module DataVersionable
       super
       DataVersionable.register_model(subclass)
     end
+
+    # 声明该模型不需要 data_version 隔离（系统级/全局模型）
+    def data_version_excluded!
+      DataVersionable.register_excluded(self)
+    end
   end
   
   # 模块级别的方法（用于管理全局模型列表）
@@ -57,9 +62,19 @@ module DataVersionable
     models << model_class unless models.include?(model_class)
   end
   
+  # 模块级别排除列表（通过 data_version_excluded! 声明的模型）
+  def self.excluded_models
+    @excluded_models ||= []
+  end
+
+  def self.register_excluded(model_class)
+    excluded_models << model_class unless excluded_models.include?(model_class)
+  end
+
   # 重置模型列表（仅用于测试）
   def self.reset_models!
     @versionable_models = []
+    @excluded_models = []
   end
   
   # 获取当前会话应该查询的 data_version 列表

@@ -24,6 +24,7 @@
 #   state_data = execution.state_data
 class ValidatorExecution < ApplicationRecord
   # ValidatorExecution 是系统模型，不使用 data_version 机制
+  data_version_excluded!
   default_scope { unscope(where: :data_version) }
   skip_callback :create, :before, :set_data_version
 
