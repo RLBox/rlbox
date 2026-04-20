@@ -1,150 +1,139 @@
 Description:
-    Generates Stripe payment integration with polymorphic Payment model.
-    One Payment model works with ANY business model (Order, Subscription, etc.)
+  Generate a fake payment integration with a polymorphic Payment model.
+  No real payment gateway required — payments are confirmed instantly with
+  a simulated PIN modal (similar to Alipay/WeChat Pay UX, no real verification).
+
+  This generator creates:
+    - app/models/payment.rb               — polymorphic Payment model
+    - app/controllers/payments_controller.rb — pay / success / failure actions
+    - app/services/fake_pay_service.rb    — simulated payment processing
+    - app/javascript/controllers/payment_confirmation_controller.ts
+    - app/views/admin/payments/           — admin index + show
+    - spec/requests/payment_integration_spec.rb
+
+  You must create:
+    - app/views/payments/pay.html.erb     — payment confirmation page
+    - app/views/payments/success.html.erb — post-payment success page
+    - app/views/payments/failure.html.erb — payment failure page (optional)
 
 Usage:
-    rails g stripe_pay
-    rails g stripe_pay --auth  # Add user association
+  rails generate stripe_pay [--auth]
 
-Setup:
-    1. bundle install && rails db:migrate && touch tmp/restart.txt
-    2. Configure Stripe keys in config/application.yml
-    3. Create app/views/payments/success.html.erb (required for callback)
+Options:
+  [--auth]  # Add user association (requires User model from `rails g authentication`)
 
-Payment Flow (CRITICAL - Follow This Order):
-    
-    1. Controller#create: Create order with status: 'pending'
-       └─> Create payment record
-       └─> Redirect to Stripe checkout
-       
-    2. User completes payment on Stripe
-    
-    3. Stripe webhook → process_payment_paid (or success page sync in dev)
-       └─> Update order status to 'paid'
-       └─> ✅ Add credits/items/access HERE (ONLY after payment confirmed)
-       └─> Send confirmation emails
-    
-    ⚠️ CRITICAL RULES:
-    - Controller creates order with status: 'pending'
-    - DO NOT grant access/credits in controller
-    - Business logic ONLY in process_payment_paid
+Examples:
+  # Without auth (uses customer_email on Payment):
+  rails generate stripe_pay
 
-Payable Interface (ALL REQUIRED):
+  # With auth (associates payments to current_user):
+  rails generate stripe_pay --auth
 
-Your business model MUST implement these 5 methods:
+After generating:
+  rails db:migrate
 
-    has_one :payment, as: :payable, dependent: :destroy
+===========================================================================
+PAYMENT FLOW
+===========================================================================
 
-    def customer_name        # String
-    def customer_email       # String (valid email)
-    def payment_description  # String
-    def stripe_mode          # 'payment' or 'subscription'
-    def stripe_line_items    # Array (see examples below)
+  1. Your controller creates the business object + payment:
 
-Example 1: One-time Payment (Order)
+       @order = Order.create!(user: current_user, status: 'pending', ...)
 
-    rails g model Order user:references total:decimal status:string
+       @payment = Payment.create!(
+         payable: @order,
+         amount:  @order.total_price,
+         currency: 'usd'
+       )
+       redirect_to pay_payment_path(@payment)
 
-    class Order < ApplicationRecord
-      belongs_to :user
-      has_one :payment, as: :payable, dependent: :destroy
+  2. User lands on pay.html.erb — shows a PIN pad (payment_confirmation controller)
+     - User enters any 6 digits (no real verification)
+     - Controller POSTs to /payments/:id/pay
 
-      def customer_name; user.name; end
-      def customer_email; user.email; end
-      def payment_description; "Order ##{id}"; end
-      def stripe_mode; 'payment'; end
-      def stripe_line_items
-        [{
-          price_data: {
-            currency: 'usd',
-            product_data: { name: payment_description },
-            unit_amount: (total * 100).to_i  # dollars to cents
-          },
-          quantity: 1
-        }]
-      end
+  3. FakePayService runs:
+     - marks payment as processing → paid
+     - calls @order.process_payment_paid
+
+  4. Redirect to success.html.erb
+
+===========================================================================
+PAYABLE INTERFACE (implement in your business model)
+===========================================================================
+
+  class Order < ApplicationRecord
+    has_one :payment, as: :payable
+
+    # Required methods:
+    def customer_name        = user.name
+    def customer_email       = user.email
+    def payment_description  = "Order ##{id}"
+
+    # Called by FakePayService after payment confirmed — put business logic here
+    def process_payment_paid
+      update!(status: 'paid')
+      # add credits, send email, etc.
     end
+  end
 
-    # Controller
-    def create
-      @order = current_user.orders.create!(order_params.merge(status: 'pending'))
-      @payment = @order.create_payment!(amount: @order.total, user: current_user)
-      redirect_to pay_payment_path(@payment), data: { turbo_method: :post }
-    end
-    
-    # ⚠️ CRITICAL: Do NOT update business logic here (e.g., add credits, mark as completed)
-    # Business logic MUST be in StripePaymentService.process_payment_paid
-    # which is called ONLY after payment is confirmed
+===========================================================================
+PAYMENT CONFIRMATION VIEW (pay.html.erb example)
+===========================================================================
 
-Example 2: Subscription (Recurring)
+  <div data-controller="payment-confirmation"
+       data-payment-confirmation-amount-value="<%= @payment.amount %>"
+       data-payment-confirmation-payment-url-value="<%= pay_payment_path(@payment) %>"
+       data-payment-confirmation-success-url-value="<%= success_payment_path(@payment) %>">
 
-    rails g model Subscription user:references plan_name:string plan_price:decimal stripe_subscription_id:string
+    <!-- Pay button -->
+    <button data-action="click->payment-confirmation#showPasswordModal">
+      Pay <%= @payment.formatted_amount %>
+    </button>
 
-    class Subscription < ApplicationRecord
-      belongs_to :user
-      has_many :payments, as: :payable
+    <!-- PIN modal -->
+    <div data-payment-confirmation-target="passwordModal" class="hidden fixed inset-0 bg-black/50 flex items-end">
+      <div class="bg-white w-full rounded-t-2xl p-6">
+        <h3>Enter payment PIN</h3>
 
-      def customer_name; user.name; end
-      def customer_email; user.email; end
-      def payment_description; "#{plan_name} Subscription"; end
-      def stripe_mode; 'subscription'; end
-      def stripe_line_items
-        [{
-          price_data: {
-            currency: 'usd',
-            product_data: { name: plan_name },
-            unit_amount: (plan_price * 100).to_i,
-            recurring: { interval: 'month' }  # REQUIRED for subscription
-          },
-          quantity: 1
-        }]
-      end
-    end
+        <!-- 6 dots -->
+        <div data-payment-confirmation-target="passwordDots" class="flex gap-3 justify-center my-4">
+          <% 6.times do %>
+            <div class="password-dot w-4 h-4 rounded-full border-2 border-gray-400 [&.filled]:bg-gray-800"></div>
+          <% end %>
+        </div>
 
-    # Controller
-    def create
-      @sub = current_user.subscriptions.create!(subscription_params)
-      @payment = @sub.payments.create!(amount: @sub.plan_price, user: current_user)
-      redirect_to pay_payment_path(@payment), data: { turbo_method: :post }
-    end
+        <!-- Number pad (0-9) -->
+        <div class="grid grid-cols-3 gap-2">
+          <% (1..9).each do |n| %>
+            <button data-action="click->payment-confirmation#inputDigit"
+                    data-digit="<%= n %>"
+                    class="btn-outline py-4 text-xl"><%= n %></button>
+          <% end %>
+          <div></div>
+          <button data-action="click->payment-confirmation#inputDigit"
+                  data-digit="0"
+                  class="btn-outline py-4 text-xl">0</button>
+          <button data-action="click->payment-confirmation#deleteDigit"
+                  class="btn-outline py-4">⌫</button>
+        </div>
 
-Business Logic After Payment:
+        <button data-action="click->payment-confirmation#closePasswordModal"
+                class="btn-ghost w-full mt-4">Cancel</button>
+      </div>
+    </div>
 
-    ⚠️ CRITICAL: Implement business logic in StripePaymentService.process_payment_paid
-    This method is called ONLY after payment is confirmed as paid.
+    <!-- Processing overlay -->
+    <div data-payment-confirmation-target="processingModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div class="bg-white rounded-xl p-8 text-center">
+        <p>Processing payment...</p>
+      </div>
+    </div>
 
-    # In app/services/stripe_payment_service.rb
-    def self.process_payment_paid(payment)
-      case payment.payable_type
-      when 'Order'
-        order = payment.payable
-        order.update!(status: 'paid')
-        # Add purchased credits/items to user ONLY here
-        order.user.increment!(:credits, order.quantity)
-        OrderMailer.confirmation(order).deliver_later
-      end
-    end
-
-    ⚠️ NEVER update business data in controller's create action!
-    Create order with status: 'pending', then update ONLY in process_payment_paid.
-
-Subscription Webhooks (if using stripe_mode: 'subscription'):
-
-    Search for CLACKY_TODO_SUBSCRIPTION in stripe_payment_service.rb and implement:
-    - handle_invoice_payment_success (monthly billing)
-    - handle_subscription_update (status sync)
-    - handle_subscription_deleted (cancellation)
-
-    Tests will enforce these are implemented when subscription mode is detected.
-
-Validation:
-
-    Run 'rake test' to validate payable interface automatically
-    Missing/incorrect methods will cause clear test failures
-
-Notes:
-
-    - Subscription mode MUST include 'recurring: { interval: ... }' in stripe_line_items
-    - One-time: has_one :payment
-    - Subscription: has_many :payments (for recurring billing)
-    - Test card: 4242 4242 4242 4242 (shown in development)
+    <!-- Status overlay -->
+    <div data-payment-confirmation-target="statusModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div class="bg-white rounded-xl p-8 text-center">
+        <div data-payment-confirmation-target="statusIcon"></div>
+        <p data-payment-confirmation-target="statusText"></p>
+      </div>
+    </div>
+  </div>

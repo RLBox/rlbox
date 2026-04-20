@@ -1,0 +1,166 @@
+import { Controller } from "@hotwired/stimulus"
+
+// payment-confirmation controller
+//
+// Targets:
+//   passwordModal     - the modal overlay for 6-digit PIN entry
+//   processingModal   - the "processing" overlay shown while POSTing
+//   statusModal       - final success/failure overlay
+//   passwordDots      - container of 6 dot elements (.password-dot)
+//   statusIcon        - icon inside statusModal
+//   statusText        - message text inside statusModal
+//   amountDisplay     - element showing the payment amount
+//
+// Values:
+//   amount       (String)  - formatted amount, e.g. "99.00"
+//   paymentUrl   (String)  - POST target, e.g. "/payments/123/pay"
+//   successUrl   (String)  - redirect on success, e.g. "/payments/123/success"
+//
+// Usage in view:
+//   <div data-controller="payment-confirmation"
+//        data-payment-confirmation-amount-value="<%= @payment.formatted_amount %>"
+//        data-payment-confirmation-payment-url-value="<%= pay_payment_path(@payment) %>"
+//        data-payment-confirmation-success-url-value="<%= success_payment_path(@payment) %>">
+//
+//     <button data-action="click->payment-confirmation#showPasswordModal">Pay</button>
+//
+//     <div data-payment-confirmation-target="passwordModal" class="hidden">
+//       <!-- 6-digit PIN pad -->
+//     </div>
+//   </div>
+
+export default class extends Controller {
+  static targets = [
+    // stimulus-validator: disable-next-line
+    "passwordModal",
+    // stimulus-validator: disable-next-line
+    "processingModal",
+    // stimulus-validator: disable-next-line
+    "statusModal",
+    // stimulus-validator: disable-next-line
+    "passwordDots",
+    // stimulus-validator: disable-next-line
+    "amountDisplay",
+    // stimulus-validator: disable-next-line
+    "statusIcon",
+    // stimulus-validator: disable-next-line
+    "statusText"
+  ]
+
+  static values = {
+    amount: String,
+    paymentUrl: String,
+    successUrl: String
+  }
+
+  declare readonly passwordModalTarget: HTMLElement
+  declare readonly hasPasswordModalTarget: boolean
+  declare readonly processingModalTarget: HTMLElement
+  declare readonly hasProcessingModalTarget: boolean
+  declare readonly statusModalTarget: HTMLElement
+  declare readonly hasStatusModalTarget: boolean
+  declare readonly passwordDotsTarget: HTMLElement
+  declare readonly hasPasswordDotsTarget: boolean
+  declare readonly amountDisplayTarget: HTMLElement
+  declare readonly hasAmountDisplayTarget: boolean
+  declare readonly statusIconTarget: HTMLElement
+  declare readonly hasStatusIconTarget: boolean
+  declare readonly statusTextTarget: HTMLElement
+  declare readonly hasStatusTextTarget: boolean
+
+  declare readonly amountValue: string
+  declare readonly paymentUrlValue: string
+  declare readonly successUrlValue: string
+
+  private pin: string = ""
+
+  connect(): void {
+    console.log("payment-confirmation connected, amount:", this.amountValue)
+  }
+
+  showPasswordModal(): void {
+    if (!this.hasPasswordModalTarget) return
+    this.pin = ""
+    this.renderDots()
+    this.passwordModalTarget.classList.remove("hidden")
+  }
+
+  closePasswordModal(): void {
+    if (this.hasPasswordModalTarget) {
+      this.passwordModalTarget.classList.add("hidden")
+    }
+  }
+
+  inputDigit(event: Event): void {
+    const btn = event.currentTarget as HTMLButtonElement
+    const digit = btn.dataset.digit
+    if (!digit || this.pin.length >= 6) return
+
+    this.pin += digit
+    this.renderDots()
+
+    if (this.pin.length === 6) {
+      this.submitPayment()
+    }
+  }
+
+  deleteDigit(): void {
+    if (this.pin.length > 0) {
+      this.pin = this.pin.slice(0, -1)
+      this.renderDots()
+    }
+  }
+
+  private renderDots(): void {
+    if (!this.hasPasswordDotsTarget) return
+    const dots = this.passwordDotsTarget.querySelectorAll<HTMLElement>(".password-dot")
+    dots.forEach((dot, i) => {
+      dot.classList.toggle("filled", i < this.pin.length)
+    })
+  }
+
+  private async submitPayment(): Promise<void> {
+    // Hide PIN modal, show processing
+    if (this.hasPasswordModalTarget) this.passwordModalTarget.classList.add("hidden")
+    if (this.hasProcessingModalTarget) this.processingModalTarget.classList.remove("hidden")
+
+    try {
+      const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || ""
+      const response = await fetch(this.paymentUrlValue, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrf,
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({})
+      })
+
+      if (this.hasProcessingModalTarget) this.processingModalTarget.classList.add("hidden")
+
+      if (response.ok || response.redirected) {
+        this.showStatus(true)
+        setTimeout(() => { window.location.href = this.successUrlValue }, 1500)
+      } else {
+        this.showStatus(false)
+      }
+    } catch (err) {
+      console.error("Payment error:", err)
+      if (this.hasProcessingModalTarget) this.processingModalTarget.classList.add("hidden")
+      this.showStatus(false)
+    }
+  }
+
+  private showStatus(success: boolean): void {
+    if (!this.hasStatusModalTarget) return
+    if (this.hasStatusIconTarget) {
+      this.statusIconTarget.innerHTML = success
+        ? `<svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`
+        : `<svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`
+    }
+    if (this.hasStatusTextTarget) {
+      this.statusTextTarget.textContent = success ? "Payment successful!" : "Payment failed, please try again."
+    }
+    this.statusModalTarget.classList.remove("hidden")
+  }
+}

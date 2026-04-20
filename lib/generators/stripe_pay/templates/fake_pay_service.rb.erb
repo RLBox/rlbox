@@ -1,0 +1,49 @@
+# FakePayService — simulated payment processor for development/demo
+#
+# Usage:
+#   result = FakePayService.new(payment).call
+#   if result[:success]
+#     redirect_to success_payment_path(payment)
+#   else
+#     flash[:alert] = result[:error]
+#   end
+#
+# CLACKY_NOTE: This is a fake payment service for demo/testing purposes.
+# Replace with real payment gateway integration when needed.
+class FakePayService < ApplicationService
+  attr_reader :payment
+
+  def initialize(payment)
+    @payment = payment
+  end
+
+  def call
+    return { success: false, error: "Payment is not in a valid state (current: #{payment.status})" } unless payable_state?
+
+    begin
+      payment.mark_as_processing!
+
+      # Simulate brief payment processing delay
+      sleep(0.5) if Rails.env.development?
+
+      payment.mark_as_paid!
+
+      # Notify the payable object that payment succeeded
+      if payment.payable.respond_to?(:process_payment_paid)
+        payment.payable.process_payment_paid
+      end
+
+      { success: true, payment: payment }
+    rescue => e
+      payment.mark_as_failed!
+      Rails.logger.error "FakePayService error: #{e.message}"
+      { success: false, error: "Payment processing failed: #{e.message}" }
+    end
+  end
+
+  private
+
+  def payable_state?
+    payment.pending? || payment.failed?
+  end
+end
