@@ -2,30 +2,26 @@ require 'rails_helper'
 
 RSpec.describe "Database Seeds" do
   let(:seeds_file) { Rails.root.join('db/seeds.rb') }
-  let(:marker_file) { Rails.root.join('tmp/seeds_executed') }
+  let(:data_packs_dir) { Rails.root.join('app/validators/support/data_packs') }
 
-  # Get all non-admin model files
-  let(:model_files) do
-    Dir.glob(Rails.root.join('app/models/**/*.rb')).reject do |file|
-      file.include?('/concerns/') ||
-      file.include?('application_record.rb') ||
-      File.basename(file).downcase.include?('admin')
-    end
+  it "data packs are the canonical source of baseline data" do
+    # This project uses data_packs (app/validators/support/data_packs/) for baseline data,
+    # NOT db/seeds.rb. Baseline data is loaded via `rake validator:reset_baseline`.
+    pack_files = Dir.glob(data_packs_dir.join('**/*.rb'))
+
+    expect(pack_files).not_to be_empty,
+      "Expected data packs in app/validators/support/data_packs/ but none found. " \
+      "Add .rb files there to define baseline data (data_version='0')."
   end
 
-  it "should have content and be executed in development" do
-    # Pass if no non-admin models exist
-    next if model_files.empty?
-
-    # Step 1: Check seeds.rb has real content
+  it "seeds.rb does not contain test user data" do
     seeds_content = File.read(seeds_file)
     code_lines = seeds_content.lines.reject { |line| line.strip.empty? || line.strip.start_with?('#') }
 
-    expect(code_lines).not_to be_empty,
-      "Project has models, please add seed data in db/seeds.rb"
-
-    # Step 2: Check seeds have been executed (development only)
-    expect(File.exist?(marker_file)).to be_truthy,
-      "db/seeds.rb has content but hasn't been executed. Run 'rails db:seed' to populate data."
+    # seeds.rb should not duplicate test data that belongs in data_packs
+    has_user_create = code_lines.any? { |line| line.match?(/User\.(create|find_or_create)/) }
+    expect(has_user_create).to be_falsey,
+      "db/seeds.rb should NOT contain User.create calls. " \
+      "Test/baseline user data belongs in app/validators/support/data_packs/."
   end
 end
