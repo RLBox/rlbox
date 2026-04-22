@@ -368,6 +368,36 @@ end
 
 **Icons**: NEVER use emojis. Use Lucide icons: `<%= lucide_icon "icon-name", class: "w-5 h-5" %>`.
 
+**LAYOUT & WIDTH CONSTRAINTS — CRITICAL (Mobile-First App):**
+
+rlbox projects are mobile-first apps (with Android TWA wrapper in `apk/` directory). Content should be FULL WIDTH on user-facing pages.
+
+❌ **NEVER use `max-w-*` on user-facing page containers!**
+- `max-w-md`, `max-w-lg`, `max-w-5xl` etc. will squeeze content into a small centered block
+- BAD: `<div class="max-w-5xl mx-auto">` — wastes screen space on mobile
+- GOOD: `<div class="w-full px-4">` — full width with proper padding
+
+✅ **Correct patterns:**
+```html
+<!-- User-facing pages: FULL WIDTH -->
+<div class="min-h-screen bg-surface">
+  <div class="px-4 py-6">...</div>
+</div>
+
+<!-- Text readability: use max-w on TEXT elements only, not containers -->
+<p class="text-secondary max-w-prose">Long paragraph text...</p>
+
+<!-- Admin pages: Can use max-w with breakpoints -->
+<div class="w-full lg:max-w-7xl lg:mx-auto">...</div>
+```
+
+**Exceptions** (max-w OK):
+- Admin pages (`admin/` views)
+- Modal/card overlays (e.g., login card `max-w-md`)
+- Inline text elements for readability (`max-w-prose`, `max-w-2xl` on `<p>` tags)
+
+**See `docs/frontend-guidelines.md` for complete layout system.**
+
 **STIMULUS CONTROLLER & VIEW STYLE SYNCHRONIZATION — CRITICAL:**
 - When modifying view templates with Stimulus targets, ALWAYS also check corresponding controller logic
 - When changing CSS classes in views that a controller manipulates, update the controller to match
