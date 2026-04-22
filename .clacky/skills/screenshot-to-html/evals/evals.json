@@ -3,41 +3,46 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "我有一个登录页面的截图在桌面上叫做 login_page.png，能帮我把它转成 HTML 吗？要用 Tailwind CSS，图标用 SVG 就行。",
-      "expected_output": "生成一个完整的 HTML 文件，包含 Tailwind CDN，使用语义化标签，按钮和输入框样式接近截图，图标用 SVG 替代，文件保存到桌面并提供文件链接",
+      "prompt": "我有一个登录页面的截图在桌面上叫做 login_page.png，能帮我把它转成 Rails ERB 视图吗？要用 Tailwind CSS，图标用 SVG 就行。",
+      "expected_output": "生成一个 Rails 兼容的 .html.erb 视图文件，使用 Tailwind CSS utility classes，不包含全局 HTML 结构（无 DOCTYPE/html/head/body），包含 ERB 占位符用于动态内容，图标用 SVG 替代，文件保存并提供链接",
       "files": [],
       "assertions": [
         {
           "id": 1,
-          "text": "生成的 HTML 包含 Tailwind CDN 链接",
-          "type": "presence"
+          "text": "生成的文件为 .html.erb 格式，不包含 <!DOCTYPE>、<html>、<head>、<body> 标签",
+          "type": "structure"
         },
         {
           "id": 2,
-          "text": "HTML 结构使用语义化标签（form, input, button）",
+          "text": "HTML 结构使用语义化标签（form, input, button）并配合 Tailwind CSS utility classes",
           "type": "structure"
         },
         {
           "id": 3,
-          "text": "包含 SVG 图标代码",
+          "text": "包含 SVG 图标代码或使用 Rails image_tag 辅助方法",
           "type": "presence"
         },
         {
           "id": 4,
-          "text": "文件保存到桌面并提供可点击链接",
+          "text": "文件保存到合适位置（Rails app/views/ 目录或桌面）并提供可点击链接",
           "type": "output"
         },
         {
           "id": 5,
-          "text": "HTML 是有效的（包含 DOCTYPE、meta 标签、title）",
-          "type": "validity"
+          "text": "包含 ERB 占位符用于动态内容（如 <%= @title %>、<%= form_with %> 等）",
+          "type": "presence"
+        },
+        {
+          "id": 6,
+          "text": "提供 Tailwind 配置说明（gem 安装或 CDN 配置）而非直接内嵌 CDN 链接",
+          "type": "requirement"
         }
       ]
     },
     {
       "id": 2,
-      "prompt": "screenshot to html - I took 3 screenshots of the same product page as I scrolled down. They're in ~/Downloads: product_top.jpg, product_middle.jpg, product_bottom.jpg. Can you stitch them together into one HTML page?",
-      "expected_output": "分析三张截图，识别重叠部分，垂直拼接成一个完整页面，去除重复元素（如 sticky header），生成响应式 HTML，颜色和间距匹配截图",
+      "prompt": "screenshot to html - I took 3 screenshots of the same product page as I scrolled down. They're in ~/Downloads: product_top.jpg, product_middle.jpg, product_bottom.jpg. Can you stitch them together into one Rails view?",
+      "expected_output": "分析三张截图，识别重叠部分，垂直拼接成一个完整的 .html.erb 视图，去除重复元素（如 sticky header），生成响应式 ERB 视图，颜色和间距匹配截图",
       "files": [],
       "assertions": [
         {
@@ -47,56 +52,66 @@
         },
         {
           "id": 2,
-          "text": "生成的页面包含顶部、中部、底部内容区域",
+          "text": "生成的 .html.erb 视图包含顶部、中部、底部内容区域",
           "type": "structure"
         },
         {
           "id": 3,
-          "text": "避免重复元素（如 sticky header）",
+          "text": "避免重复元素（如 sticky header 只出现一次）",
           "type": "logic"
         },
         {
           "id": 4,
-          "text": "使用 Tailwind CSS",
+          "text": "使用 Tailwind CSS utility classes 进行样式设计",
           "type": "requirement"
         },
         {
           "id": 5,
-          "text": "响应式布局（包含 responsive classes）",
+          "text": "响应式布局（包含 Tailwind responsive classes 如 md:, lg:）",
           "type": "quality"
+        },
+        {
+          "id": 6,
+          "text": "输出为 .html.erb 格式，不包含全局 HTML 结构标签",
+          "type": "structure"
         }
       ]
     },
     {
       "id": 3,
-      "prompt": "把这个 UI 设计变成代码，图在 ~/Desktop/dashboard_design.png，是一个数据仪表板的界面，有图表、卡片、侧边栏那些。用 Tailwind 做，图表的地方先用占位图代替就好。",
-      "expected_output": "生成仪表板 HTML，包含侧边栏、导航栏、多个数据卡片组件、图表占位区域（SVG 矩形），使用 Tailwind grid 布局，响应式设计，颜色和排版接近原设计",
+      "prompt": "把这个截图 ~/Desktop/dashboard.png 转成网页代码，要还原颜色和布局，用 Tailwind CSS。",
+      "expected_output": "分析截图中的布局结构、颜色方案和间距，生成高还原度的 .html.erb Rails 视图，使用 Tailwind CSS，颜色采用自定义色值匹配截图",
       "files": [],
       "assertions": [
         {
           "id": 1,
-          "text": "包含侧边栏导航结构",
-          "type": "structure"
+          "text": "分析了截图的布局结构（sidebar, header, content area 等）",
+          "type": "comprehension"
         },
         {
           "id": 2,
-          "text": "包含多个数据卡片组件",
-          "type": "components"
+          "text": "使用 Tailwind CSS 自定义颜色值（如 bg-[#xxx]）还原截图配色",
+          "type": "quality"
         },
         {
           "id": 3,
-          "text": "图表区域用 SVG 占位图表示",
-          "type": "placeholder"
+          "text": "布局结构合理（使用 flex, grid 等布局方式）",
+          "type": "structure"
         },
         {
           "id": 4,
-          "text": "使用 Tailwind Grid 布局",
-          "type": "layout"
+          "text": "文件保存并提供链接",
+          "type": "output"
         },
         {
           "id": 5,
-          "text": "响应式设计（侧边栏在移动端可收起）",
-          "type": "responsive"
+          "text": "输出为 .html.erb 格式，包含 ERB 占位符和 Rails 辅助方法",
+          "type": "structure"
+        },
+        {
+          "id": 6,
+          "text": "提供控制器和路由配置说明",
+          "type": "requirement"
         }
       ]
     }
