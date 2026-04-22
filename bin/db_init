@@ -62,9 +62,9 @@ FileUtils.chdir APP_ROOT do
   puts "\n📊 [2/3] 运行数据库迁移..."
   system! 'bin/rails db:migrate'
   
-  # Step 3: 加载基线数据
+  # Step 3: 加载基线数据（FULL=1 确保清掉所有历史遗留数据，包括旧的 data_version='0' 用户）
   puts "\n📊 [3/3] 加载基线验证数据..."
-  system! 'bin/rails validator:reset_baseline'
+  system!({ 'FULL' => '1' }, 'bin/rails validator:reset_baseline')
   
   puts "\n=========================================="
   puts "✅ 数据库初始化完成！"

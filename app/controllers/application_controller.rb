@@ -53,18 +53,7 @@ class ApplicationController < ActionController::Base
   end
 
   def auto_login_default_user
-    default_email = 'demo@rlbox.ai'
-    default_password = 'password123'
-
-    user = User.find_by(email: default_email)
-    unless user
-      user = User.create!(
-        email: default_email,
-        password: default_password,
-        password_confirmation: default_password,
-        verified: true
-      )
-    end
+    user = User.find_by!(email: 'demo@rlbox.ai')
 
     session_record = user.sessions.create!(
       user_agent: Current.user_agent,
@@ -73,6 +62,8 @@ class ApplicationController < ActionController::Base
 
     cookies.signed.permanent[:session_token] = { value: session_record.id, httponly: true, same_site: :lax }
     Current.session = session_record
+  rescue ActiveRecord::RecordNotFound
+    raise "demouser not found — run `rake validator:reset_baseline` to initialize data packs"
   rescue => e
     Rails.logger.error "Auto-login failed: #{e.message}"
     nil
