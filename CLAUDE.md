@@ -92,6 +92,10 @@ Rails 默认热加载。**需要重启**的情况：
 
 **Step 1**：`echo "YourAppName" > config/appname.txt`，再改 `application.css` + `tailwind.config.js` 的设计系统变量（HSL 颜色 + 语义 token）。`npm run build:css` 固化。**未完成 Step 1 不准建 model/controller**。
 
+- **HSL only**：`application.css` / `tailwind.config.js` 中只用 HSL 颜色变量。若 `index.css` 里有 rgb 值，**不要**在 `tailwind.config.js` 里用 `hsl()` 包裹 rgb——会算出错误颜色。
+- **NEVER `@apply group`**：`group` class 只能写在 HTML 模板里，不能出现在 CSS `@apply` 指令中。
+- **USE EXISTING COMPONENTS**：系统已有完整的 `.btn-*` / `.card-*` / `.alert-*` / `.badge-*` / `.form-*` class。优先复用，自定义组件加在 `application.css` 底部区域。❌ **禁止修改 `components.css`**。
+
 **Step 2**：建静态 demo → `app/views/shared/demo.html.erb`（纯 HTML + Tailwind，无 JS/无模型/无数据；占位文本 + Unsplash 图片；**只写 body**，layout 已存在；无 `home/index.html.erb` 时自动路由为首页）。
 
 **Step 3**：启动项目 + `curl http://localhost:<PORT>/` 确保无错。
