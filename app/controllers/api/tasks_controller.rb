@@ -186,14 +186,14 @@ module Api
       validator_files.each do |file|
         next if file.end_with?('base_validator.rb') || file.end_with?('multi_turn_base_validator.rb')
         
-        # 推导类名
+        # 推导类名（含 Validators:: 命名空间前缀）
         relative_path = file.gsub(Rails.root.join('app/validators/').to_s, '')
         class_path = relative_path.gsub('.rb', '').split('/')
-        class_name = class_path.map(&:camelize).join('::')
+        class_name = "Validators::" + class_path.map(&:camelize).join('::')
         
         begin
           klass = class_name.constantize
-          next unless klass < BaseValidator
+          next unless klass < Validators::BaseValidator
           
           # 匹配 validator_id
           if klass.validator_id == validator_id

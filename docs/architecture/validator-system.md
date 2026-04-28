@@ -8,6 +8,9 @@ related:
   - data-packs.md
   - multi-session.md
   - validator-linter.md
+  - ../decisions/ADR-005-validator-seed-hook.md
+  - ../decisions/ADR-006-validators-namespaced-root.md
+  - ../decisions/ADR-007-verify-cross-request-isolation.md
   - ../conventions/validator-writing.md
 supersedes: ../archive/VALIDATOR_DESIGN.md
 source_files:
@@ -210,28 +213,55 @@ app/validators/
 
 ## 6. 跨请求状态持久化（ADR-007）
 
-`execute_prepare` 和 `execute_verify` 是**两次独立 HTTP 请求**，内存不共享。`@data_version`、`@product`、`@user` 等实例变量在 `prepare` 阶段通过 `ValidatorExecution#state` 字段（JSON）序列化存入 DB，`verify` 阶段反序列化恢复。
+`execute_prepare` 和 `execute_verify` 是**两次独立 HTTP 请求**，内存不共享。框架默认只持久化 `@data_version`（通过 `validator_executions.state` 字段）。
 
+**验证阶段允许的四种正确姿势：**
+
+**A. prepare 用局部变量**（最简，verify 不依赖 ivar）：
 ```ruby
-# base_validator.rb（简化）
-def execute_prepare
-  @data_version = SecureRandom.hex(8)
-  # ... prepare logic ...
-  execution.update!(
-    data_version: @data_version,
-    state: serializable_state.to_json
-  )
-end
-
-def execute_verify
-  execution = ValidatorExecution.find_by!(...)
-  @data_version = execution.data_version
-  restore_state(JSON.parse(execution.state))
-  # ... verify logic ...
+def prepare
+  user = User.find_by!(email: 'demo@example.com', data_version: '0')
+  { task: "请给 #{user.name} 加购 2 份有机苹果", hint: '...' }
 end
 ```
 
-**陷阱**：`@user` 存的是 ID，不是 ActiveRecord 对象（不可序列化）。`prepare` 里用 `@user_id = @user.id`，`verify` 里用 `@user = User.find(@user_id)`。
+**B. verify 里独立重查**（推荐——自给自足）：
+```ruby
+def verify
+  # verify 是新实例，不能直接用 @user——重查 baseline
+  user    = User.find_by!(email: 'demo@example.com', data_version: '0')
+  product = Product.find_by!(name: '有机苹果', data_version: '0')
+  add_assertion '加购成功', weight: 40 do
+    expect(CartItem.where(user: user, product: product, data_version: @data_version)).to exist
+  end
+end
+```
+
+**C. `load_refs` 模式**（配合 `seed` 钩子时推荐）：
+```ruby
+def verify
+  load_refs   # memoize，verify 新实例下第一次调会真查一次
+  add_assertion '操作成功', weight: 60 do
+    expect(Order.where(user: @user, data_version: @data_version)).to exist
+  end
+end
+```
+
+**D. 显式持久化**（罕见——真的需要传递 prepare 阶段计算出的非 baseline 数据）：
+```ruby
+def execution_state_data
+  super.merge(computed_threshold: @computed_threshold)
+end
+
+def restore_from_state(data)
+  super
+  @computed_threshold = data['computed_threshold']
+end
+```
+
+> ⚠️ **陷阱**：不要在 `execution_state_data` 里存 ActiveRecord 对象（不可序列化）。存主键然后在 `restore_from_state` 里 `find` 是可以的，但通常直接在 verify 里按 baseline 重查（方式 B）更简洁。
+
+**FAIL FAST 机制（ADR-007）：** `execute_simulate` 在 verify 阶段会**新建一个 validator 实例**，只用 `execution_state_data` 恢复状态。这样单进程测试能真实复现生产行为——如果 verify 直接用了 prepare 的 ivar，`@user = nil` 在测试阶段就会暴露，彻底消灭"单机绿、浏览器红"陷阱。
 
 ---
 

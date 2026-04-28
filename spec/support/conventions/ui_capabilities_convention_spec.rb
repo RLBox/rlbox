@@ -30,7 +30,7 @@ RSpec.describe 'UiCapabilities convention' do
   end
 
   it 'all requires_ui declarations are satisfied by current ui_supports: annotations' do
-    validators = ObjectSpace.each_object(Class).select { |c| c < BaseValidator }
+    validators = ObjectSpace.each_object(Class).select { |c| c < Validators::BaseValidator }
 
     failures = []
     validators.each do |validator_class|

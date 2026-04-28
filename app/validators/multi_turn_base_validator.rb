@@ -26,7 +26,7 @@
 #       end
 #     end
 #   end
-class MultiTurnBaseValidator < BaseValidator
+class Validators::MultiTurnBaseValidator < Validators::BaseValidator
   class << self
     attr_accessor :max_turns
 

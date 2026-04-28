@@ -6,6 +6,9 @@ supersedes: ../archive/VALIDATOR_WRITING_STANDARDS.md
 related:
   - architecture/data-version.md
   - architecture/validator-system.md
+  - decisions/ADR-005-validator-seed-hook.md
+  - decisions/ADR-006-validators-namespaced-root.md
+  - decisions/ADR-007-verify-cross-request-isolation.md
   - decisions/INDEX.md
 ---
 
@@ -150,13 +153,58 @@ expect(item.quantity).to eq(2), "错了"
 
 ## 6. 跨请求隔离：verify 必须独立工作（ADR-007 硬规则）
 
-生产环境中，`prepare` 和 `verify` 是**两次独立 HTTP 请求**，内存不共享。在 `prepare` 里设置的 `@user` 在 `verify` 开始时是 **nil**。
+> **事故背景**：这是从多次"单机绿、浏览器红"事故中总结出的硬规则。
+> 根本原因：旧版 `execute_simulate` 在同一个实例上跑 prepare → simulate → verify，
+> `@user` 等 ivar 一路都在，测试绿；但生产环境 prepare 和 verify 是**两次独立 HTTP 请求、两个实例**，
+> `@user` 在 verify 实例里是 nil，assertion 静默失败。
 
-### 正确姿势
+### 6.1 为什么 @user 在 verify 里是 nil
 
-**方式 B（推荐）：verify 里独立重查**
+```
+[HTTP 请求 #1]  POST /tasks/:id/prepare   → new Validator + execute_prepare  → 进程结束
+[Agent 在浏览器做动作]                                                        → DB 改变
+[HTTP 请求 #2]  POST /tasks/:id/verify    → new Validator + execute_verify   → 进程结束
+```
+
+两个实例。prepare 里设置的 `@user` 在 verify 开始时是 **nil**。
+能跨请求传递的**只有**：
+1. `@data_version`（框架自动）
+2. `execution_state_data` 里**显式声明**的字段
+
+### 6.2 FAIL FAST 机制（ADR-007）
+
+**自 ADR-007 起**，`execute_simulate` 在 verify 阶段会**新建一个 validator 实例**，只从 `execution_state_data / restore_from_state` 恢复状态——完美复刻生产的跨请求隔离。
 
 ```ruby
+# base_validator.rb（核心改动）
+def execute_simulate
+  execute_prepare                                   # self 实例
+  simulate                                          # self 实例
+  verify_instance = self.class.new(@execution_id)  # 🔑 新实例
+  result[:verify_result] = verify_instance.execute_verify
+end
+```
+
+现在单进程 `rake validator:simulate` 绿 → 生产也绿。写错了（verify 用了 prepare 的 ivar）`@user=nil` 立刻在 spec 里暴露。
+
+### 6.3 四种正确姿势
+
+**A. prepare 改局部变量**（最简单，prepare 只组装 hint 文案）：
+```ruby
+def prepare
+  user = User.find_by!(email: 'demo@example.com', data_version: '0')
+  { task: "请给 #{user.name} 加购 2 份有机苹果", hint: '...' }
+end
+```
+
+**B. verify 里独立重查**（推荐——verify 自给自足）：
+```ruby
+def prepare
+  @user    = User.find_by!(email: 'demo@example.com', data_version: '0')
+  @product = Product.find_by!(name: '有机苹果', data_version: '0')
+  { task: '...', hint: '...' }
+end
+
 def verify
   # verify 是新实例，@user 是 nil——按 baseline 重查
   user    = User.find_by!(email: 'demo@example.com', data_version: '0')
@@ -165,24 +213,41 @@ def verify
     expect(CartItem.where(user: user, product: product, data_version: @data_version)).to exist
   end
 end
+
+def simulate
+  # simulate 和 prepare 同实例，@user 有值，可直接用
+  CartItem.create!(user: @user, product: @product, data_version: @data_version)
+end
 ```
 
-**方式 C（用了 seed 时推荐）：`load_refs` 模式**
-
-verify 阶段调 `load_refs`，内部 `return if @user` 做 memoize，新实例第一次调会真查 baseline。
-
+**C. `load_refs` 模式**（用了 seed 时推荐）：
+prepare / seed / verify / simulate 都调 `load_refs`，内部 `return if @user` memoize。
 ```ruby
 def verify
   load_refs   # verify 新实例下会真的查一次 baseline
-  add_assertion '操作成功', weight: 40 do
+  add_assertion '...', weight: 40 do
     expect(Order.where(user: @user, data_version: @data_version)).to exist
   end
 end
 ```
 
-### 自查问题
+**D. 显式持久化**（罕见——真的需要传递 prepare 阶段计算出的非 baseline 数据）：
+```ruby
+def execution_state_data
+  super.merge(computed_threshold: @computed_threshold)
+end
 
-写完 validator 前问自己：**verify 里用到的每个 `@xxx`，在 verify 阶段新建实例只有 `@data_version` 的前提下，能否正常取到？**
+def restore_from_state(data)
+  super
+  @computed_threshold = data['computed_threshold']
+end
+```
+
+### 6.4 快速自查
+
+写完 validator，问自己：**verify 里用到的每个 `@xxx`，在 verify 阶段新建实例只有 `@data_version` 的前提下，能否正常取到？**
+
+`bundle exec rspec spec/validators/base_validator_leak_detection_spec.rb` 以及 `rake validator:simulate` 都会用新实例跑 verify，漏的会立刻暴露。
 
 ## 7. 目录 & 命名约定（ADR-006）
 
@@ -221,4 +286,7 @@ end
 ## 9. 延伸阅读
 - [architecture/validator-system.md](../architecture/validator-system.md) — 框架设计（生命周期、数据隔离）
 - [architecture/validator-linter.md](../architecture/validator-linter.md) — Linter 实现
-- [decisions/INDEX.md](../decisions/INDEX.md) — ADR 总览（ADR-005/006/007 在派生项目各自的 decisions/ 目录中）
+- [decisions/ADR-005-validator-seed-hook.md](../decisions/ADR-005-validator-seed-hook.md) — seed 钩子的决策背景
+- [decisions/ADR-006-validators-namespaced-root.md](../decisions/ADR-006-validators-namespaced-root.md) — Validators 命名空间决策
+- [decisions/ADR-007-verify-cross-request-isolation.md](../decisions/ADR-007-verify-cross-request-isolation.md) — verify 跨请求隔离决策
+- [decisions/INDEX.md](../decisions/INDEX.md) — ADR 总览

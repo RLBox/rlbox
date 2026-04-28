@@ -63,16 +63,16 @@ class Admin::ValidationTasksController < Admin::BaseController
       # 跳过 base_validator.rb
       next if file.end_with?('base_validator.rb')
       
-      # 从文件路径推导出完整的类名（包含命名空间）
-      # 例如: app/validators/v001_v050/v001_book_budget_hotel_validator.rb
-      # => V001V050::V001BookBudgetHotelValidator
+      # 从文件路径推导出完整的类名（含 Validators:: 命名空间前缀）
+      # 例如: app/validators/cart/v001_add_to_cart_validator.rb
+      # => "Validators::Cart::V001AddToCartValidator"
       relative_path = file.gsub(Rails.root.join('app/validators/').to_s, '')
       class_path = relative_path.gsub('.rb', '').split('/')
-      class_name = class_path.map(&:camelize).join('::')
+      class_name = "Validators::" + class_path.map(&:camelize).join('::')
       
       begin
         klass = class_name.constantize
-        next unless klass < BaseValidator
+        next unless klass < Validators::BaseValidator
         
         # 返回验证器的 metadata
         klass.metadata
@@ -110,16 +110,16 @@ class Admin::ValidationTasksController < Admin::BaseController
       
       relative_path = file.gsub(Rails.root.join('app/validators/').to_s, '')
       class_path = relative_path.gsub('.rb', '').split('/')
-      class_name = class_path.map(&:camelize).join('::')
+      class_name = "Validators::" + class_path.map(&:camelize).join('::')
       
       begin
         klass = class_name.constantize
-        next unless klass < BaseValidator
+        next unless klass < Validators::BaseValidator
         
         # 匹配 validator_id
         if klass.validator_id == validator_id
           # 检查是否继承自 MultiTurnBaseValidator
-          return klass < MultiTurnBaseValidator
+          return klass < Validators::MultiTurnBaseValidator
         end
       rescue StandardError => e
         next
@@ -138,11 +138,11 @@ class Admin::ValidationTasksController < Admin::BaseController
       
       relative_path = file.gsub(Rails.root.join('app/validators/').to_s, '')
       class_path = relative_path.gsub('.rb', '').split('/')
-      class_name = class_path.map(&:camelize).join('::')
+      class_name = "Validators::" + class_path.map(&:camelize).join('::')
       
       begin
         klass = class_name.constantize
-        next unless klass < BaseValidator
+        next unless klass < Validators::BaseValidator
         
         # 匹配 validator_id
         if klass.validator_id == validator_id

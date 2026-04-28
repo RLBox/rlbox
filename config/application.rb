@@ -40,6 +40,18 @@ module Myapp
     # Exclude data_packs scripts from Zeitwerk autoloading (they are plain Ruby scripts, not constants)
     Rails.autoloaders.main.ignore(Rails.root.join('app/validators/support'))
 
+    # Namespaced root (Zeitwerk official API): mount app/validators under the
+    # `Validators` module so subdirs like `order/` become `Validators::Order`,
+    # NOT the top-level `Order` AR model. This avoids the TypeError:
+    #   "Order is not a module" — previous definition of Order was here
+    # that would occur if we used Rails default autoload (class vs module collision).
+    # See docs/decisions/ADR-006-validators-namespaced-root.md.
+    module ::Validators; end unless defined?(::Validators)
+    Rails.autoloaders.main.push_dir(
+      Rails.root.join('app/validators'),
+      namespace: ::Validators
+    )
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files

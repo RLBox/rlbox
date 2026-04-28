@@ -25,7 +25,7 @@ require_relative 'base_validator'
 #   # 验证结果
 #   POST /api/verify/:execution_id/result
 
-class V001CreatePostValidator < BaseValidator
+class Validators::V001CreatePostValidator < Validators::BaseValidator
   self.validator_id = 'v001_create_post'
   self.task_id = SecureRandom.uuid
   self.title = '创建帖子'

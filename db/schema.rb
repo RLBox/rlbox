@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_03_23_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_28_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -256,9 +256,14 @@ ActiveRecord::Schema[7.2].define(version: 2026_03_23_000001) do
     t.boolean "is_active", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "validator_id"
+    t.integer "score"
+    t.string "status"
+    t.jsonb "verify_result", default: {}
     t.index ["execution_id"], name: "index_validator_executions_on_execution_id", unique: true
     t.index ["is_active"], name: "index_validator_executions_on_is_active"
     t.index ["user_id"], name: "index_validator_executions_on_user_id"
+    t.index ["validator_id"], name: "index_validator_executions_on_validator_id"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"

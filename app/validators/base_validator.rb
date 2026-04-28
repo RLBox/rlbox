@@ -25,10 +25,15 @@ end
 #       expect(Booking.count).to eq(1)
 #     end
 #   end
-class BaseValidator
+class Validators::BaseValidator
   # 仅在 RSpec 可用时 include
   include RSpec::Matchers if RSPEC_AVAILABLE
-  
+
+  # prepare 阶段设置了未声明持久化的实例变量 —— 跨请求会丢失，必须显式处理。
+  # 注：自 ADR-007 起，检测改为行为级别（execute_simulate 里 verify 用新实例）。
+  # 保留此异常类供 validator 显式 raise 使用；基类不再自动抛。
+  class ValidatorStateLeakError < StandardError; end
+
   # 自定义异常类（用于生产环境）
   class ExpectationNotMetError < StandardError
     def initialize(message)
@@ -284,6 +289,13 @@ class BaseValidator
     # DataVersionable 的 before_create 钩子会自动读取并设置新记录的 data_version
     ActiveRecord::Base.connection.execute("SET SESSION app.data_version = '#{@data_version}'")
     
+    # 题目私有预制数据钩子（可选）。
+    # seed 在 prepare 之前、SET SESSION 之后执行；新建记录自动写入 @data_version，
+    # 不会污染 baseline（data_version='0'），也不会被其他 validator 会话看到。
+    # rollback_to_baseline 时会与 Agent 数据一起删除。
+    # 详见 docs/decisions/ADR-005-validator-seed-hook.md
+    seed if respond_to?(:seed)
+
     # 执行自定义准备逻辑（通常不需要加载数据，直接使用基线数据即可）
     @prepare_result = prepare
     
@@ -376,6 +388,12 @@ class BaseValidator
   end
   
   # 执行完整的自动化测试流程（prepare -> simulate -> verify）
+  #
+  # FAIL FAST 关键设计（ADR-007）：
+  #   verify 阶段用**新建的 validator 实例**调用，并通过 execution_state_data 恢复状态。
+  #   这真实模拟了生产环境「prepare 和 verify 是两次独立 HTTP 请求、两个独立实例」的行为。
+  #   如果 validator 在 prepare 里设置了 @user 但 verify 直接读取，新实例里 @user=nil
+  #   会立刻在单进程测试里暴露，彻底消灭「单机绿、浏览器红」的陷阱。
   def execute_simulate
     result = {
       task_id: self.class.task_id,
@@ -392,15 +410,23 @@ class BaseValidator
       # 0. 确保基线数据已加载
       ensure_baseline_data_loaded
       
-      # 1. 准备阶段
+      # 1. 准备阶段（self 实例）
       result[:prepare_info] = execute_prepare
       
-      # 2. 模拟操作阶段
+      # 2. 模拟操作阶段（self 实例——模拟 AI Agent 的操作）
       result[:simulate_info] = simulate
       
-      # 3. 验证阶段
-      result[:verify_result] = execute_verify
-      
+      # 3. 验证阶段 —— 🔑 新建实例，模拟跨请求隔离（ADR-007）
+      #    prepare 里设置的未持久化实例变量（@user 等）在这一步是 nil
+      #    验证通过 → 说明 verify 正确实现了独立工作（方式 B/C/D）
+      verify_instance = self.class.new(@execution_id)
+      result[:verify_result] = verify_instance.execute_verify
+
+      # 同步回本实例（便于调试、断言查阅）
+      @assertions = verify_instance.assertions
+      @errors     = verify_instance.errors
+      @score      = verify_instance.score
+
       # 判断最终状态
       result[:status] = result[:verify_result][:status]
       
@@ -428,8 +454,9 @@ class BaseValidator
   
   # 确保基线数据已加载
   def ensure_baseline_data_loaded
-    # 检查是否已存在基线数据（使用City作为标志）
-    return if City.where(data_version: 0).exists?
+    # 检查是否已存在基线数据
+    # ⚠️ 哨兵模型需在派生项目里替换为实际的主业务模型（如 Category / Product 等）
+    return if User.where(data_version: 0).exists?
     
     puts "\n" + "=" * 80
     puts "🚀 正在初始化验证器基线数据 (data_version=0)"
@@ -471,8 +498,6 @@ class BaseValidator
     puts "=" * 80
     puts "✓ 基线数据初始化完成 (data_version=0)"
     puts "  - 共加载 #{data_pack_files.size} 个数据包"
-    puts "  - City 数量: #{City.where(data_version: 0).count}"
-    puts "  - Flight 数量: #{Flight.where(data_version: 0).count}"
     puts "  - User 数量: #{User.where(data_version: 0).count}"
     puts "=" * 80
     puts ""

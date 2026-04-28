@@ -16,17 +16,9 @@ updated_at: 2026-04-28
 | [ADR-002](ADR-002-data-packs-not-seeds.md) | Baseline 数据只通过 data_packs/v1/ 加载 | ✅ Accepted | 2026-04-28 |
 | [ADR-003](ADR-003-business-vs-system-tables.md) | 业务表 vs 系统表的判断准则 | ✅ Accepted | 2026-04-28 |
 | [ADR-004](ADR-004-rls-requires-bin-db-init.md) | RLS 初始化必须走 bin/db_init | ✅ Accepted | 2026-04-28 |
-
-## 派生项目的 ADR（在各自仓库新增）
-
-派生项目（Goomart / IdleSwap / Kangoo…）在这 4 个基础 ADR 上会继续新增项目专有 ADR，从 ADR-005 开始编号：
-
-| 常见 ADR-005+ 主题 | 建议标题模式 |
-|---|---|
-| 验证器 seed 钩子 | `ADR-005-validator-seed-hook` |
-| Validators 命名空间 | `ADR-006-validators-namespaced-root` |
-| verify 跨请求隔离 | `ADR-007-verify-cross-request-isolation` |
-| Session 是业务表 | `ADR-NNN-session-is-business-table` |
+| [ADR-005](ADR-005-validator-seed-hook.md) | 引入 `seed` 钩子承载题目私有预制数据 | ✅ Accepted | 2026-04-28 |
+| [ADR-006](ADR-006-validators-namespaced-root.md) | Validators 挂到命名空间根，避免与业务模型撞车 | ✅ Accepted | 2026-04-28 |
+| [ADR-007](ADR-007-verify-cross-request-isolation.md) | Validator 执行状态默认不跨请求持久化（verify 用独立实例） | ✅ Accepted | 2026-04-28 |
 
 ## 新建 ADR 模板
 
