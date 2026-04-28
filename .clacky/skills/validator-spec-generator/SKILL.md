@@ -1,789 +1,578 @@
 ---
 name: validator-spec-generator
-description: 'Generate validator code files for Fliggy AI Agent capability testing. Use this skill when the user asks to generate a validator, create a validator file, make a new validator, or wants to auto-generate validators. Generates app/validators/{module}/xxx_validator.rb with prepare, verify, and simulate methods. Does NOT generate spec files.'
+description: 'Generate Goomart validator files for AI Agent benchmark testing. Use when the user asks to generate a validator, create a validator file, make a new validator, or add a test case. Generates app/validators/{module}/v{NNN}_{module}_validator.rb with prepare, verify, simulate (and optional seed) methods, following Goomart''s data_version / RLS conventions.'
 disable-model-invocation: false
 user-invocable: true
 ---
 
-# Validator Generator
+# Validator Generator (Goomart 电商版)
 
 ## Purpose
 
-自动生成 validator 代码文件，用于 Fliggy AI Agent 能力测试。生成的 validator 包含 prepare、verify、simulate 三个核心方法。
+自动生成 Goomart validator 代码文件，用于 AI Agent 能力测试 / benchmark。生成的 validator 包含 `prepare`、`verify`、`simulate` 三个核心方法（可选 `seed` 钩子），符合 Goomart 项目的 data_version / RLS 约定。
 
-支持按业务模块分类，模块内自动编号。
+**按业务模块分子目录**（order / catalog / cart / checkout / account / common），模块内三位数字自动编号。
 
 ## When to use this skill
 
-- 用户说"生成 validator"、"创建 validator"、"自动生成验证器"
-- 用户说"make a validator"、"generate validator"、"create validator file"
-- 用户提供任务描述并要求生成对应的 validator
+- 用户说："生成 validator"、"创建 validator"、"新建验证器"、"写个测试用例"
+- 用户说："make a validator"、"generate validator"、"create a benchmark task"
+- 用户给了一个自然语言任务描述（如"给张三加购 2 斤苹果"），要求做成 validator
 
-## Validator Structure Overview
+## ⚠️ 权威文档
 
-Validator 继承自 `BaseValidator`，包含以下核心部分：
+**本 skill 生成的代码必须符合**：
+- [`docs/conventions/validator-writing.md`](../../../docs/conventions/validator-writing.md) — 编写规范（题目 / prepare / simulate / verify 断言）
+- [`docs/architecture/data-version.md`](../../../docs/architecture/data-version.md) — data_version 语义与 RLS
+- [`docs/architecture/validator-system.md`](../../../docs/architecture/validator-system.md) — 生命周期
+- [`docs/decisions/ADR-001-all-business-tables-have-data-version.md`](../../../docs/decisions/ADR-001-all-business-tables-have-data-version.md) — 业务表红线
 
-```ruby
-class V001HotelValidator < BaseValidator
-  self.validator_id = 'v001_hotel_validator'
-  self.task_id = 'uuid-here'
-  self.title = '任务标题'
-  self.timeout_seconds = 300  # 默认 300 秒
+**如果规范与本 skill 冲突，以规范为准**。发现冲突就更新本 skill。
 
-  def prepare
-    # 返回给 Agent 的任务参数（Hash）
-    { task: "任务描述" }
-  end
-
-  def verify
-    # 使用 add_assertion 验证 Agent 的操作结果
-    add_assertion "断言描述", weight: 20 do
-      expect(something).to be_truthy
-    end
-  end
-
-  def simulate
-    # （推荐）模拟 AI Agent 的操作，创建符合要求的数据
-    # 用于自动化回归测试
-  end
-  
-  private
-  
-  # （可选）保存执行状态
-  def execution_state_data
-    { param: @param }
-  end
-  
-  # （可选）恢复执行状态
-  def restore_from_state(data)
-    @param = data['param']
-  end
-end
-```
-
-**设计理念**：本技能基于 Fliggy 项目中 **300+ 生产级 validator** 的最佳实践，提取共性模式并标准化为模板框架。
-
-## 新的模块化结构（2026-04-17 更新）
-
-### 目录结构
-
-```
-~/fliggy/app/validators/
-  ├── hotel/
-  │   ├── v001_hotel_validator.rb
-  │   ├── v002_hotel_validator.rb
-  │   └── v003_hotel_validator.rb
-  ├── flight/
-  │   ├── v001_flight_validator.rb
-  │   └── v002_flight_validator.rb
-  ├── attraction/
-  │   ├── v001_attraction_validator.rb
-  │   └── v002_attraction_validator.rb
-  └── common/
-      ├── v001_common_validator.rb
-      └── v002_common_validator.rb
-```
-
-### 命名规则
-
-- **目录名**：`{module}/`（小写，如 `hotel/`、`flight/`、`attraction/`）
-- **文件名**：`v{编号}_{module}_validator.rb`（如 `v001_hotel_validator.rb`）
-- **类名**：`V{编号}{Module}Validator`（如 `V001HotelValidator`，编号为整数，模块名首字母大写）
-- **validator_id**：`v{编号}_{module}_validator`（如 `v001_hotel_validator`）
-
-### 参数说明
-
-- **--module**：指定模块名（默认：`common`）
-  - 示例：`--module hotel`、`--module flight`、`--module attraction`
-  - 如果不指定，默认使用 `common` 模块
-
-- **--number**：手动指定编号（可选）
-  - 示例：`--number 005`
-  - 如果指定的编号已存在，自动递增到下一个可用编号并提示
-  - 如果不指定，自动扫描模块目录，取最大编号 + 1
-
-### 自动编号逻辑
-
-1. 扫描 `~/fliggy/app/validators/{module}/` 目录
-2. 找到所有 `v{XXX}_{module}_validator.rb` 文件（如 `v001_hotel_validator.rb`、`v002_hotel_validator.rb`）
-3. 提取三位数字编号（001、002、003...）
-4. 取最大值 + 1 作为新编号
-5. 编号格式：三位数字，从 001 开始（如 001、002、003...）
-6. 如果目录不存在或为空，从 001 开始
-
-### 兼容性说明
-
-- **旧项目向后兼容**：如果用户项目仍在使用旧的 `v001_v050/` 目录结构，可以暂时保留
-- **新生成默认使用新格式**：所有新生成的 validator 使用模块化结构
-- **迁移建议**：建议用户逐步将旧 validator 迁移到新的模块化结构
-
-## Workflow
-
-### 1. 收集信息
-
-询问用户或从用户输入中提取：
-
-**必需信息**：
-- **任务标题**（title）：简短描述任务目标（例如：`给张三预订明天深圳欢乐港湾成人票`）
-- **任务描述**（task description）：详细说明 Agent 需要完成什么操作
-- **验证点**：需要验证哪些方面（例如：订单已创建、城市正确、日期正确等）
-
-**可选信息**：
-- **模块名**（--module）：如 `hotel`、`flight`、`attraction`（默认：`common`）
-- **编号**（--number）：如 `005`（如果不指定，自动取下一个可用编号）
-- **超时时间**：默认 240 秒
-
-### 2. 确定文件路径和类名
-
-#### 示例 1：指定模块为 `hotel`，自动编号
-
-```bash
-# 用户输入：生成 validator，模块 hotel
-# 系统扫描 ~/fliggy/app/validators/hotel/ 目录
-# 发现最大编号为 002
-# 新编号：003
-```
-
-生成结果：
-- **目录**：`~/fliggy/app/validators/hotel/`
-- **文件名**：`v003_hotel_validator.rb`
-- **类名**：`V003HotelValidator`
-- **validator_id**：`v003_hotel_validator`
-
-#### 示例 2：指定模块为 `flight`，手动指定编号 005
-
-```bash
-# 用户输入：生成 validator，模块 flight，编号 005
-# 系统检查 ~/fliggy/app/validators/flight/v005_flight_validator.rb 是否存在
-# 如果不存在，使用 005
-# 如果已存在，自动递增到 006 并提示
-```
-
-生成结果：
-- **目录**：`~/fliggy/app/validators/flight/`
-- **文件名**：`v005_flight_validator.rb`
-- **类名**：`V005FlightValidator`
-- **validator_id**：`v005_flight_validator`
-
-#### 示例 3：不指定模块（默认 `common`）
-
-```bash
-# 用户输入：生成 validator（没有指定模块）
-# 系统使用默认模块 common
-# 扫描 ~/fliggy/app/validators/common/ 目录
-```
-
-生成结果：
-- **目录**：`~/fliggy/app/validators/common/`
-- **文件名**：`v001_common_validator.rb`
-- **类名**：`V001CommonValidator`
-- **validator_id**：`v001_common_validator`
-
-### 3. 生成 validator 代码
-
-#### A. 文件头部注释
-
-包含：
-- 任务编号和标题
-- 任务描述（详细说明）
-- 复杂度分析（需要执行哪些步骤）
-- 评分标准（每个验证点的权重）
-- 使用方法（API 调用示例）
+## Validator 结构总览
 
 ```ruby
 # frozen_string_literal: true
 
 require_relative '../base_validator'
 
-# 验证用例 hotel_003: 给张三预订明天深圳欢乐港湾成人票（1张，最便宜供应商）
-# 
-# 任务描述:
-#   Agent 需要在系统中搜索深圳欢乐港湾的门票，
-#   找到成人票中价格最便宜的供应商并成功创建订单
-# 
-# 复杂度分析:
-#   1. 需要搜索"深圳欢乐港湾"景点（从6个景点中找到）
-#   2. 需要选择成人票类型（排除儿童票）
-#   3. 需要对比多个供应商的价格（4个供应商）
-#   4. 需要选择价格最低的供应商
-#   5. 需要填写游玩日期（明天）和数量（1张）
-#   6. 需要区分平日票和周末票（根据游玩日期）
-#   ❌ 不能一次性提供：需要先搜索景点→选择票种→对比供应商→预订
-# 
-# 评分标准:
-#   - 订单已创建 (15分)
-#   - 订单属于张三（用户+联系电话） (15分)
-#   - 景点正确（深圳欢乐港湾）(15分)
-#   - 票种正确（成人票）(15分)
-#   - 游玩日期正确（明天）(10分)
-#   - 数量正确（1张）(10分)
-#   - 选择了最便宜的供应商 (20分)
-# 
-# 使用方法:
-#   # 准备阶段
-#   POST /api/tasks/v003_hotel_validator/start
-#   
-#   # Agent 通过界面操作完成预订...
-#   
-#   # 验证结果
-#   POST /api/verify/:execution_id/result
-```
+class V001OrderValidator < BaseValidator
+  self.validator_id = 'v001_order_validator'
+  self.task_id = '任务-UUID'
+  self.title = '给张三下单购买 2 斤有机苹果'
+  self.timeout_seconds = 180
 
-#### B. 类定义（新格式，无模块命名空间）
-
-```ruby
-class V003HotelValidator < BaseValidator
-  self.validator_id = 'v003_hotel_validator'
-  self.task_id = '生成新的UUID'
-  self.title = '给张三预订明天深圳欢乐港湾成人票（1张，最便宜供应商）'
-  self.timeout_seconds = 240
-```
-
-**重要变化**：
-- **不再使用模块命名空间**（如 `V001V050`、`V051V100` 等）
-- **类名格式**：`{Module}{编号}Validator`（如 `V001HotelValidator`、`V005FlightValidator`）
-- `title` 字段是必需的
-- **不需要 `description` 字段**
-- `task_id` 使用 `SecureRandom.uuid` 生成
-
-#### C. prepare 方法
-
-返回一个 Hash，包含任务相关的信息：
-
-```ruby
-def prepare
-  @city = '深圳'
-  @check_in_date = Date.current + 1.day  # 明天
-  
-  # 可以查询基线数据（data_version: 0）
-  available_hotels = Hotel.where(city: @city, data_version: 0)
-  
-  # 返回给 Agent 的任务信息
-  {
-    task: "请预订明天入住#{@city}的酒店",
-    city: @city,
-    check_in_date: @check_in_date.to_s,
-    hint: "系统中有#{available_hotels.count}家酒店可选"
-  }
-end
-```
-
-**关键点**：
-- 设置实例变量（`@city`, `@check_in_date` 等）供 verify 使用
-- 返回的 Hash 会传递给 Agent
-- 可以包含 `task`、`hint`、具体参数等
-
-#### D. verify 方法
-
-使用 `add_assertion` 验证 Agent 的操作结果：
-
-```ruby
-def verify
-  # 断言1: 订单已创建
-  add_assertion "订单已创建", weight: 25 do
-    all_bookings = HotelBooking
-      .where(data_version: @data_version)
-      .order(created_at: :desc)
-      .to_a
-    expect(all_bookings).not_to be_empty, "未找到任何订单记录"
-    @hotel_booking = all_bookings.first
+  # (可选) 题目私有预制数据 —— 在 prepare 之前执行
+  # 新建记录自动写入 @data_version，不会污染 baseline
+  def seed
+    # 例: 给张三预先加一个收货地址（不想出现在全局 baseline 里的）
   end
-  
-  return unless @hotel_booking  # 如果没有订单，后续断言无法继续
-  
-  # 断言2: 城市正确
-  add_assertion "城市正确", weight: 15 do
-    expect(@hotel_booking.hotel.city).to eq(@city),
-      "城市错误。期望: #{@city}, 实际: #{@hotel_booking.hotel.city}"
-  end
-  
-  # 断言3: 日期正确
-  add_assertion "入住日期正确", weight: 15 do
-    expect(@hotel_booking.check_in_date).to eq(@check_in_date),
-      "入住日期错误。期望: #{@check_in_date}, 实际: #{@hotel_booking.check_in_date}"
-  end
-end
-```
-
-**关键点**：
-- 每个 `add_assertion` 包含描述和权重（weight）
-- 权重总和应为 100 分
-- 使用 RSpec 的 `expect` 语法
-- 提供清晰的错误消息（期望值 vs 实际值）
-- 第一个断言通常检查核心实体是否创建
-- 如果核心实体不存在，使用 `return` 提前退出
-
-#### E. simulate 方法（可选但推荐）
-
-模拟 AI Agent 的操作，创建符合要求的数据：
-
-```ruby
-def simulate
-  # 1. 查找测试用户
-  user = User.find_by!(email: 'demo@travel01.com', data_version: 0)
-  
-  # 2. 查找目标酒店
-  hotel = Hotel.where(city: @city, data_version: 0).sample
-  
-  # 3. 创建订单
-  booking = HotelBooking.create!(
-    hotel_id: hotel.id,
-    user_id: user.id,
-    check_in_date: @check_in_date,
-    check_out_date: @check_in_date + 1.day,
-    rooms_count: 1,
-    adults_count: 1,
-    children_count: 0,
-    total_price: 300.0,
-    status: 'pending',
-    guest_name: '张三',
-    guest_phone: '13800138000',
-    data_version: @data_version
-  )
-  
-  # 4. 返回操作信息
-  {
-    action: 'create_hotel_booking',
-    booking_id: booking.id,
-    hotel_name: hotel.name,
-    user_email: user.email
-  }
-end
-```
-
-**关键点**：
-- 使用 `data_version: 0` 查询基线数据
-- 创建的记录使用 `data_version: @data_version`（执行数据）
-- 返回关键操作信息的 Hash
-
-#### F. 私有辅助方法（可选）
-
-```ruby
-private
-
-# 保存执行状态数据
-def execution_state_data
-  {
-    city: @city,
-    check_in_date: @check_in_date.to_s
-  }
-end
-
-# 从状态恢复实例变量
-def restore_from_state(data)
-  @city = data['city']
-  @check_in_date = Date.parse(data['check_in_date'])
-end
-```
-
-### 4. 生成步骤总结
-
-1. **收集信息**：任务标题、描述、验证点、模块名、编号（可选）
-2. **确定编号**：
-   - 如果用户指定了 `--number`，检查是否已存在
-   - 如果已存在，自动递增并提示
-   - 如果未指定，扫描目录取最大编号 + 1
-3. **确定文件路径**：`~/fliggy/app/validators/{module}/{module}_{编号}_validator.rb`
-4. **生成代码**：
-   - 文件头部注释（任务说明、复杂度、评分标准）
-   - 类定义（validator_id、task_id、title）
-   - `prepare` 方法（返回任务参数）
-   - `verify` 方法（add_assertion 验证结果）
-   - `simulate` 方法（可选，模拟操作）
-   - 私有辅助方法（可选，状态保存/恢复）
-5. **创建目录**：如果 `~/fliggy/app/validators/{module}/` 不存在，自动创建
-6. **写入文件**：使用 `write` 工具写入
-7. **确认**：告诉用户文件已创建，提供路径和编号
-
-## 编号扫描和自动递增示例
-
-```ruby
-# 扫描模块目录，获取下一个可用编号
-def find_next_number(module_name)
-  validators_dir = File.expand_path("~/fliggy/app/validators/#{module_name}")
-  
-  # 如果目录不存在，返回 001
-  return "001" unless Dir.exist?(validators_dir)
-  
-  # 查找所有符合命名规范的文件
-  pattern = File.join(validators_dir, "#{module_name}_*_validator.rb")
-  files = Dir.glob(pattern)
-  
-  # 提取编号
-  numbers = files.map do |file|
-    basename = File.basename(file, '.rb')
-    # 匹配 {module}_{编号}_validator
-    match = basename.match(/^#{module_name}_(\d{3})_validator$/)
-    match ? match[1].to_i : nil
-  end.compact
-  
-  # 返回最大编号 + 1（格式化为三位数字）
-  next_number = numbers.empty? ? 1 : numbers.max + 1
-  format("%03d", next_number)
-end
-
-# 检查编号是否已存在
-def number_exists?(module_name, number)
-  validators_dir = File.expand_path("~/fliggy/app/validators/#{module_name}")
-  file_path = File.join(validators_dir, "#{module_name}_#{number}_validator.rb")
-  File.exist?(file_path)
-end
-
-# 获取可用编号（如果指定的编号已存在，自动递增）
-def get_available_number(module_name, requested_number = nil)
-  if requested_number
-    # 用户手动指定了编号
-    number = requested_number
-    while number_exists?(module_name, number)
-      puts "警告：编号 #{number} 已存在，自动递增..."
-      number = format("%03d", number.to_i + 1)
-    end
-    number
-  else
-    # 自动获取下一个可用编号
-    find_next_number(module_name)
-  end
-end
-```
-
-## Best Practices
-
-### prepare 方法
-- 清晰定义任务参数
-- 使用实例变量存储关键数据
-- 返回的 Hash 应易于 Agent 理解
-- 可以包含 `hint` 提示信息
-
-### verify 方法
-- 第一个断言应检查核心实体（订单、预订等）
-- 权重分配合理（总和 100 分）
-- 提供清晰的错误消息（期望 vs 实际）
-- 核心验证点权重更高
-- 使用 `return unless @entity` 避免后续断言报错
-
-### simulate 方法
-- 完全模拟 Agent 的操作流程
-- 确保创建的数据能通过 verify 验证
-- 使用真实的测试用户和数据
-- 返回关键操作信息
-
-### 代码风格
-- 使用 `frozen_string_literal: true`
-- 详细的中文注释
-- 清晰的变量命名
-- 适当的空行和缩进
-
-### 模块命名建议
-- **hotel**：酒店预订相关
-- **flight**：机票预订相关
-- **train**：火车票预订相关
-- **attraction**：景点门票相关
-- **car**：租车相关
-- **common**：通用或跨业务的任务
-
-## Example: 简单的酒店预订 Validator（新格式）
-
-```ruby
-# frozen_string_literal: true
-
-require_relative '../base_validator'
-
-# 验证用例 hotel_020: 给张三预订明天深圳酒店（1间房1成人，入住2晚）
-# 
-# 任务描述:
-#   Agent 需要在系统中搜索深圳的酒店，
-#   预订明天入住、大后天退房（共2晚），
-#   预订1间房、1位成人、0位儿童
-# 
-# 复杂度分析:
-#   1. 需要搜索"深圳"城市的酒店（具体城市）
-#   2. 需要选择"明天"入住日期（理解相对日期）
-#   3. 需要正确计算2晚的离店日期（明天+2天=大后天）
-#   4. 需要设置正确的房间数（1间）和人数（1成人0儿童）
-# 
-# 评分标准:
-#   - 订单已创建 (25分)
-#   - 城市正确（深圳） (15分)
-#   - 入住日期正确（明天）(15分)
-#   - 离店日期正确（大后天，共2晚）(25分)
-#   - 房间数和人数正确（1间房，1成人，0儿童）(20分)
-
-class V020HotelValidator < BaseValidator
-  self.validator_id = 'v020_hotel_validator'
-  self.task_id = 'cebea439-0ffc-4798-9edb-e5cef8d09100'
-  self.title = '给张三预订明天深圳酒店（1间房1成人，入住2晚）'
-  self.timeout_seconds = 240
 
   def prepare
-    @city = '深圳'
-    @check_in_date = Date.current + 1.day
-    @nights = 2
-    @check_out_date = @check_in_date + @nights.days
-  
+    # 只查 baseline（data_version: '0'），不写数据
+    @user    = User.find_by!(email: 'demo@rlbox.ai', data_version: '0')
+    @product = Product.find_by!(name: '有机苹果', data_version: '0')
+
     {
-      task: "请预订明天入住#{@city}的酒店（入住2晚）",
-      city: @city,
-      check_in_date: @check_in_date.to_s,
-      nights: @nights
+      task: "请为张三下单购买 2 斤有机苹果",
+      hint: '在购物车中加入苹果并完成下单'
     }
   end
 
   def verify
-    add_assertion "订单已创建", weight: 25 do
-      all_bookings = HotelBooking
-        .joins(:hotel)
-        .where(hotels: { city: @city, data_version: 0 })
-        .where(data_version: @data_version)
-        .order(created_at: :desc)
-        .to_a
-      expect(all_bookings).not_to be_empty, "未找到任何订单"
-      @hotel_booking = all_bookings.first
+    add_assertion '订单已创建', weight: 30 do
+      @order = Order.where(user: @user, data_version: @data_version)
+                    .order(created_at: :desc).first
+      expect(@order).not_to be_nil, '未找到张三的订单'
     end
-  
-    return unless @hotel_booking
-  
-    add_assertion "城市正确", weight: 15 do
-      expect(@hotel_booking.hotel.city).to eq(@city)
+
+    return if @order.nil?
+
+    add_assertion '订单包含苹果', weight: 40 do
+      item = @order.order_items.find_by(product: @product)
+      expect(item).not_to be_nil, "订单未包含商品：#{@product.name}"
     end
-  
-    add_assertion "入住日期正确", weight: 15 do
-      expect(@hotel_booking.check_in_date).to eq(@check_in_date)
+
+    add_assertion '数量为 2', weight: 30 do
+      item = @order.order_items.find_by(product: @product)
+      expect(item.quantity).to eq(2), "预期 2，实际 #{item&.quantity.inspect}"
     end
   end
 
   def simulate
-    user = User.find_by!(email: 'demo@travel01.com', data_version: 0)
-    hotel = Hotel.where(city: @city, data_version: 0).sample
-  
-    HotelBooking.create!(
-      hotel_id: hotel.id,
-      user_id: user.id,
-      check_in_date: @check_in_date,
-      check_out_date: @check_out_date,
-      rooms_count: 1,
-      adults_count: 1,
-      children_count: 0,
-      total_price: 300.0,
+    order = Order.create!(
+      user: @user,
       status: 'pending',
-      guest_name: '张三',
-      guest_phone: '13800138000',
+      total_price: @product.price * 2,
+      data_version: @data_version
+    )
+    order.order_items.create!(
+      product: @product,
+      quantity: 2,
+      unit_price: @product.price,
       data_version: @data_version
     )
   end
 end
 ```
 
-## Anti-patterns to avoid
+## 🔑 Goomart 专属硬规则（违反 = 代码废）
 
-- **不要生成 spec 文件**：本技能只生成 validator 代码，不生成测试
-- **不要使用 description 字段**：只使用 `title`
-- **不要硬编码 UUID**：使用 `SecureRandom.uuid` 生成新的 `task_id`
-- **不要使用旧的模块命名空间**：新格式不使用 `V001V050`、`V051V100` 等模块
-- **不要使用旧的编号格式**：新格式使用 `v001_hotel` 而不是 `v001`（旧的 v001_v050 范围格式）
-- **不要使用不合理的权重**：确保所有权重总和为 100
-- **不要忽略数据版本**：查询基线数据用 `data_version: 0`，创建执行数据用 `@data_version`
-
-## Fliggy 生产级 Validator 模板规范
-
-### 核心设计原则
-
-基于 Fliggy 项目 300+ 生产级 validator 的最佳实践：
-
-1. **结构完整**：包含文档注释、prepare、verify、simulate、状态管理
-2. **防御性强**：使用 Guard Clause 避免后续断言报错
-3. **错误消息清晰**：格式为 `"字段名错误。期望: X, 实际: Y"`
-4. **断言权重合理**：总分 100，核心断言权重更高
-5. **可自动化**：simulate 方法可完整复现 Agent 操作
-
-### 文档注释规范
+### 1. data_version 永远是字符串
 
 ```ruby
-# frozen_string_literal: true
+# ✅ 正确
+User.find_by!(email: 'demo@rlbox.ai', data_version: '0')
+CartItem.create!(user: @user, data_version: @data_version)
 
-require_relative '../base_validator'
-
-# 验证用例 v{NUMBER}_{MODULE}: {简短标题}
-# 
-# 任务描述:
-#   {详细描述 Agent 需要完成的操作}
-#   Agent 需要完成以下操作：
-#   1. {步骤1}
-#   2. {步骤2}
-# 
-# 复杂度分析:（可选，对于复杂任务）
-#   1. {复杂度点1}
-#   2. {复杂度点2}
-#   ❌ 不能一次性提供：需要先{步骤A}→{步骤B}→{步骤C}
-# 
-# 评分标准:
-#   - {断言1描述} ({权重}分)
-#   - {断言2描述} ({权重}分)
-#   ...
-#   总分：100分
-# 
-# 使用方法:
-#   POST /api/tasks/v{NUMBER}_{MODULE}_validator/start
+# ❌ 错（Goomart data_version 是 string 类型，不是 integer）
+User.find_by!(email: 'demo@rlbox.ai', data_version: 0)
 ```
 
-### prepare 方法规范
+### 2. simulate / seed 里创建的记录必须带 `@data_version`（绝不 `'0'`）
+
+```ruby
+# ✅ 正确：@data_version 由 base_validator 在 execute_prepare 时生成
+Order.create!(user: @user, data_version: @data_version)
+
+# ❌ 反例 1：污染 baseline，永久留存
+Order.create!(user: @user, data_version: '0')
+
+# ❌ 反例 2：漏字段，会走 DataVersionable 的 before_create，从 SESSION 取
+# 虽然技术上可行，但不显式 = 容易踩坑
+Order.create!(user: @user)  # 可读性差，不推荐
+```
+
+`rake validator:lint` 会静态扫描复现反例 1。
+
+### 3. verify 的查询必须带 `data_version: @data_version`
+
+```ruby
+# ✅ 正确
+orders = Order.where(user: @user, data_version: @data_version).to_a
+
+# ❌ 错：漏 data_version，会受 RLS / 跨会话污染影响
+orders = Order.where(user: @user).to_a
+```
+
+### 4. 禁用业务表三件套（ADR-001 / 003 红线）
+
+**绝不**在 Goomart 业务表（User/Order/Product/CartItem/Review/Category/Address/…）上使用：
+- `data_version_excluded!`
+- `unscope(where: :data_version)`
+- `skip_callback :create, :before, :set_data_version`
+
+这三件套仅限 5 张系统表（Administrator / Session / AdminOplog / ValidatorExecution / ActiveStorage*）。见 [ADR-001](../../../docs/decisions/ADR-001-all-business-tables-have-data-version.md)。
+
+### 5. 过滤 vs 断言分离
+
+```ruby
+# ❌ 坏：属性塞进 where，只能判"有/无"
+items = CartItem.where(product: @product, quantity: 2, data_version: @data_version)
+
+# ✅ 好：where 只锁 scope，断言独立
+items = CartItem.where(product: @product, data_version: @data_version).to_a
+add_assertion '数量为 2', weight: 15 do
+  items.each { |i| expect(i.quantity).to eq(2), "预期 2，实际 #{i.quantity}" }
+end
+```
+
+### 6. Guard clause 必须有
+
+```ruby
+add_assertion '订单存在', weight: 25 do
+  @order = Order.where(user: @user, data_version: @data_version).first
+  expect(@order).not_to be_nil
+end
+
+return if @order.nil?   # ← 没这行，下面断言会 NPE
+
+add_assertion '订单金额正确', weight: 30 do
+  expect(@order.total_price).to eq(199), "..."
+end
+```
+
+### 7. Assertion 权重总和 = 100
+
+### 8. RLS / SET SESSION 不用手动管
+
+`BaseValidator#execute_prepare` 已经做了：
+```ruby
+ActiveRecord::Base.connection.execute("SET SESSION app.data_version = '#{@data_version}'")
+seed if respond_to?(:seed)
+```
+
+validator 子类**不要**自己写 `SET SESSION`。
+
+### 9. ⚠️ seed 钩子执行顺序 → 必须用 `load_refs` pattern（硬约定）
+
+`seed` 在 `prepare` **之前**执行。如果你把 `@user = User.find_by!(...)` 放在 `prepare` 里，seed 里 `belongs_to :user` 校验会抛 `Validation failed: User must exist`。
+
+**正确做法**：baseline 引用抽出一个 `load_refs` 私有方法，seed 和 prepare 各调一次，用 `return if @user` memoize。
 
 ```ruby
 def prepare
-  # 1. 设置业务参数（实例变量）
-  @city = '深圳'
-  @check_in_date = Date.current + 2.days  # 相对日期
-  @nights = 1
-  @check_out_date = @check_in_date + @nights.days
-  
-  # 2. 查询基线数据（data_version=0）
-  eligible_items = {Model}.where(
-    {core_field}: @{param},
-    data_version: 0
+  load_refs
+  { task: "把购物车里的 #{@product.name} 换成 #{@bulk_variant.name}", hint: '编辑已有 cart item' }
+end
+
+def seed
+  load_refs
+  # @data_version 由 base_validator 自动注入；这里私有数据要显式写
+  CartItem.create!(
+    user: @user, product: @product, product_variant: @share_variant,
+    quantity: 1, data_version: @data_version
   )
-  
-  # 3. 计算最优解（如需验证"最优选择"）
-  @best_item = eligible_items.max_by { |i| i.rating / i.price.to_f }
-  
-  # 4. 返回任务信息
-  {
-    task: "给张三预订后天入住一晚#{@city}的经济型酒店...",
-    city: @city,
-    check_in_date: @check_in_date.to_s,
-    date_description: "入住：后天（#{@check_in_date.strftime('%Y年%m月%d日')}）",
-    hint: "系统中有多家酒店可选，请选择性价比最高的"
-  }
 end
-```
 
-### verify 方法规范
-
-```ruby
-def verify
-  # 断言1（必需）：查询核心实体并存储（权重 20-25 分）
-  add_assertion "{实体}已创建", weight: 20 do
-    all_items = {Model}
-      .joins(:association)  # 关联查询
-      .where({core_field}: @{param})  # ✅ 只过滤核心实体
-      .where(data_version: @data_version)  # ✅ 会话隔离
-      .order(created_at: :desc)
-      .to_a
-    
-    expect(all_items).not_to be_empty, 
-      "未找到任何{实体}记录"
-    
-    @item = all_items.first
-  end
-  
-  # Guard Clause（必需）：防御式编程
-  return unless @item
-  
-  # 断言2-N：验证具体属性
-  add_assertion "{核心属性}正确（{期望值}）", weight: 15 do
-    expect(@item.{field}).to eq(@{expected}),
-      "{字段名}错误。期望: #{@{expected}}, 实际: #{@item.{field}}"
-  end
-  
-  # 高级断言：验证"最优选择"（权重 10-30 分）
-  add_assertion "选择了{最优目标}", weight: 10 do
-    best_item = eligible_items.max_by { ... }
-    expect(@item.id).to eq(best_item.id),
-      "未选择{最优目标}。应选: #{best_item.name}，实际选择: #{@item.name}"
-  end
-end
-```
-
-### simulate 方法规范
-
-```ruby
-def simulate
-  # 1. 查找测试用户
-  user = User.find_by!(email: 'demo@travel01.com', data_version: 0)
-  
-  # 2. 获取联系人信息
-  contact = user.contacts.find_by!(name: '张三', data_version: 0)
-  
-  # 3. 查询目标实体（复用 prepare 逻辑）
-  target_item = {Model}.where(...).max_by { ... }
-  
-  # 4. 创建记录
-  record = {Model}.create!(
-    {field}: {value},
-    user_id: user.id,
-    data_version: @data_version  # ✅ 会话隔离
-  )
-  
-  # 5. 返回操作信息
-  {
-    action: 'create_{entity}',
-    {entity}_id: record.id,
-    {key_field}: record.{key_field}
-  }
-end
-```
-
-### 状态管理方法规范
-
-```ruby
 private
 
-def execution_state_data
-  {
-    city: @city,
-    check_in_date: @check_in_date.to_s,  # 日期转字符串
-    best_item_id: @best_item&.id  # 对象只保存 ID
-  }
+# seed 在 prepare 之前执行 → baseline 引用抽出来共用
+def load_refs
+  return if @user  # memoize: 只查一次
+  @user = User.find_by!(email: 'demo@rlbox.ai', data_version: '0')
+  @product = Product.find_by!(name: '椰子水 1L', data_version: '0')
+  @share_variant = ProductVariant.find_by!(product: @product, name: '1L【分享装】', data_version: '0')
+  @bulk_variant  = ProductVariant.find_by!(product: @product, name: '1L*12【囤货装】', data_version: '0')
 end
 
-def restore_from_state(data)
-  @city = data['city']
-  @check_in_date = Date.parse(data['check_in_date'])
-  @best_item = {Model}.find_by(id: data['best_item_id']) if data['best_item_id']
-end
+public  # 恢复，让 verify / simulate 保持默认 public
 ```
 
-### 断言权重分配参考
+> **Canonical 示例**：`app/validators/cart/v002_change_coconut_variant_validator.rb` 完整实现了这个 pattern。生成新 validator 时优先参考它。
 
-| 断言类型 | 权重范围 | 优先级 |
-|---------|---------|--------|
-| 实体已创建 | 20-25 | 最高 |
-| 核心属性正确 | 10-15 | 高 |
-| 日期/时间正确 | 10-15 | 高 |
-| 价格/预算正确 | 15-20 | 高 |
-| 最优选择正确 | 10-30 | 最高 |
-| 数量/人数正确 | 5-10 | 中 |
-| 联系人信息正确 | 5-10 | 中 |
+### 10. Zeitwerk 命名约定（子目录 validator）
 
-**总分必须等于 100**
+`config/application.rb` 已为 `app/validators/{catalog,cart,checkout,order,account,...}/` 做了 `Rails.autoloaders.main.collapse(dir)`，**文件 → 类名** 对应关系：
 
----
+- 文件：`app/validators/order/v002_reorder_previous_validator.rb`
+- 类名：**`V002ReorderPreviousValidator`**（顶层，Pascal of filename）
+- ❌ 不是 `Order::V002ReorderPreviousValidator`（collapse 掉了目录命名空间）
+- ❌ 不是 `V002OrderReorderPreviousValidator`（模块名不要重复塞进类名）
 
-## When you're done
+命名公式：
+```ruby
+File.basename(path, '.rb').split('_').map(&:capitalize).join
+# 'v002_reorder_previous_validator' → 'V002ReorderPreviousValidator'
+```
 
-1. 确定模块名（默认 `common`）和编号（自动或手动指定）
-2. 检查编号是否已存在，如已存在则自动递增并提示
-3. 创建目录（如不存在）：`~/fliggy/app/validators/{module}/`
-4. 使用 **Fliggy 生产级模板** 生成 validator 文件
-5. 写入文件：`~/fliggy/app/validators/{module}/v{NUMBER}_{module}_validator.rb`
-6. 告诉用户：
-   - 文件已创建
-   - 完整路径
-   - 模块名和编号
-   - 需要填充的 TODO 项
-   - 如何使用（通过 API 或 Rails console）
-7. **不生成任何 spec 文件**
+**为什么 collapse**：`Order` / `Cart` / `Review` 都是已存在的 ActiveRecord 模型常量。如果不 collapse，Zeitwerk 会要求 `app/validators/order/` 下的类必须在 `Order::` 命名空间内 → 和模型常量冲突，抛 `Zeitwerk::NameError`。
 
----
+生成 validator 时：**不要**让类名包含模块名重复（本 skill 早期模板的 `V001OrderValidator` 放 `order/v001_order_validator.rb` 下其实走运没冲突，是因为文件名也叫 `v001_order_validator.rb` → `V001OrderValidator`，这是 coincidence 不是 rule）。按文件名 Pascal 化是唯一靠谱的规则。
 
-## 生成器注意事项
+### 11. 绝不要用 `be_true` / `be_false`（RSpec 3 已删）
 
-生成 validator 时，**必须**在以下位置添加明确的 TODO 注释：
+`BaseValidator#expect` 优先走 RSpec（`RSPEC_AVAILABLE`）。RSpec 3 已移除 `be_true` / `be_false` 两个 matcher，继续用会被当 predicate matcher → 尝试调用 `true.true?` → `NoMethodError` → 被 `add_assertion` 的 `rescue StandardError` 吞成 `"执行错误: undefined method 'true?' for true"`，assertion 不明不白地挂掉。
 
 ```ruby
-# TODO: 设置业务参数
-# TODO: 查询基线数据
-# TODO: 根据业务模型修改查询
-# TODO: 添加核心属性验证
-# TODO: 实现自动化逻辑
+# ❌ 错：RSpec 3 会把 be_true 当 predicate matcher
+expect(match_result).to be_true, '备注包含晚上 8 点'
+
+# ✅ 对：三选一
+expect(match_result).to be_truthy, '备注包含晚上 8 点'   # nil/false 失败，其他通过
+expect(match_result).to eq(true), '备注包含晚上 8 点'    # 精确等于 true
+expect(match_result).to be true                           # 同上，新语法
 ```
 
-这样用户可以清楚知道哪些部分需要填充业务逻辑。
+`add_assertion` 默认 rescue 所有 StandardError → 真实 bug 会被误报成"assertion failed"，写断言时优先 `be_truthy` / `eq`，避开 predicate matcher 风险。
+
+### 12. 查"自己的"集合（addresses / cart_items）要显式 `where(data_version: '0')`
+
+RLS policy 让 session 同时看到 `data_version='0'` 和 `data_version=@data_version` 两类记录。如果 `seed` 里又给同一个 user 造了一条私有 address，那 `@user.addresses.first` 可能拿到私有的而不是 baseline 那条。
+
+```ruby
+# ❌ 可能误中 seed 造的私有地址
+@home = @user.addresses.order(created_at: :desc).first
+
+# ✅ 显式锁 baseline
+@home = @user.addresses.where(data_version: '0').order(created_at: :desc).first
+```
+
+同理 `@user.cart_items` / `@user.orders` 等，如果你"只想要 baseline 基线条目"，都要显式 `where(data_version: '0')`。
+
+### 13. 生成前先核对字段（pre-flight schema check）
+
+Goomart 模型字段和 skill 作者记忆里的往往不一样，踩过的坑：
+
+| 以为有 | 实际 |
+|---|---|
+| `Product.stock` | ❌ 没有（库存是 variant 层或不存库存） |
+| `Product.rating` | ❌ 用 `positive_rate` 和 `review_count` |
+| `Product.sub_category_key` | ❌ 用 `category_id`（FK 到 Category）|
+| `Address.is_default` | ❌ 没有。"默认地址" = `addresses.order(created_at: :desc).first`（checkouts_controller 逻辑）|
+| `ProductVariant.stock` | ❌ 没有 |
+| `PaymentPassword.password` | ❌ 用 `password_digest`（BCrypt）|
+
+**生成前的预检**（强烈建议）：
+
+```bash
+# 查一个模型的实际字段
+bundle exec rails runner "puts Product.columns.map(&:name).join(', ')"
+
+# 或直接翻 db/structure.sql
+grep -A 40 "CREATE TABLE public.products" db/structure.sql
+```
+
+如果模板里引用了一个字段不在实际 schema 里，生成出来 `execute_simulate` 会直接炸（`NoMethodError`）。**不要凭记忆写字段**。
+
+## 目录结构（A 方案：按业务模块分）
+
+```
+app/validators/
+  ├── base_validator.rb              ← 框架，不要改
+  ├── support/data_packs/v1/         ← baseline 数据源（不归 skill 管）
+  │
+  ├── common/                        ← 通用 / 跨模块（兜底）
+  │   └── ...
+  ├── order/                         ← 下单、支付、订单状态、取消
+  │   ├── v001_cancel_paid_order_validator.rb
+  │   └── v002_reorder_previous_validator.rb
+  ├── catalog/                       ← 商品浏览、分类、搜索、详情
+  │   ├── v001_browse_fruits_best_rating_validator.rb
+  │   └── v002_search_egg_cheapest_validator.rb
+  ├── cart/                          ← 购物车增删改查
+  │   ├── v001_add_bottled_water_3_validator.rb
+  │   └── v002_change_coconut_variant_validator.rb
+  ├── checkout/                      ← 结算、地址选择、备注、运费
+  │   ├── v001_default_address_validator.rb
+  │   ├── v002_remark_delivery_window_validator.rb
+  │   └── v003_non_default_address_validator.rb
+  └── account/                       ← 用户账号、收货地址管理、支付密码
+      └── v001_add_nanshan_address_validator.rb
+```
+
+**`require_relative '../base_validator'`** —— 因为在子目录里，父级一层。
+
+## 命名规则
+
+**核心**：**类名 = 文件名 Pascal 化**（见硬规则 §10）。目录名**不要**塞进类名。
+
+| 项 | 格式 | 示例 |
+|---|---|---|
+| 目录 | `{module}/` | `order/` |
+| 文件名 | `v{NNN}_{brief_name}_validator.rb` | `v002_reorder_previous_validator.rb` |
+| 类名 | **文件名 Pascal 化**（不含目录） | `V002ReorderPreviousValidator` |
+| `validator_id` | 与文件名（去 `.rb`）一致 | `v002_reorder_previous_validator` |
+| 编号 | 三位数字（模块内递增） | `001`, `002`, `003` |
+
+⚠️ **反例**（会抛 `Zeitwerk::NameError`）：
+- `order/v002_reorder_previous_validator.rb` → ❌ `V002OrderReorderPreviousValidator`
+- `order/v002_reorder_previous_validator.rb` → ❌ `Order::V002ReorderPreviousValidator`（collapse 掉了命名空间）
+
+生成类名的标准代码：`File.basename(path, '.rb').split('_').map(&:capitalize).join`
+
+## Goomart 业务模块表
+
+| 模块 | 用途 | 典型任务 |
+|---|---|---|
+| `common` | 通用 / 多模块混合 | 默认模块；跨购物车+支付的复合任务 |
+| `order` | 下单、支付、订单状态、取消 | "给张三下单购买 2 斤苹果" / "取消订单" |
+| `catalog` | 商品浏览、分类、搜索、详情 | "浏览水果分类并找到最便宜的苹果" / "搜索鸡蛋最低价" |
+| `cart` | 购物车增删改查 | "给张三加购 2 斤苹果" / "把酸奶改成 3 盒" |
+| `checkout` | 结算、地址选择、备注、运费 | "用非默认地址结算" / "结算时备注配送时间" |
+| `account` | 账号资料、收货地址管理、支付密码 | "添加收货地址" / "修改昵称" / "重置支付密码" |
+
+## 可用 baseline 数据（固定身份，生成 validator 时直接用）
+
+| 类型 | 查询方式 |
+|---|---|
+| Demo 用户 | `User.find_by!(email: 'demo@rlbox.ai', data_version: '0')`（密码 `password123`，支付密码 `123456`） |
+| Demo 默认地址 | `@user.addresses.where(data_version: '0').order(created_at: :desc).first` —— **baseline 已有 1 条：科兴科学园 A 座 1801，label=家** |
+| Categories | `Category.where(data_version: '0')`（125 条） |
+| Products | `Product.where(data_version: '0')`（27 条，含 5 款水果 / 3 款鸡蛋 / 单瓶农夫山泉 / 芹菜 / 椰子水 2 个规格 等） |
+| ProductVariants | `ProductVariant.where(data_version: '0')`（椰子水有 `1L【分享装】` 和 `1L*12【囤货装】`） |
+| Reviews | `Review.where(data_version: '0')`（21 条） |
+
+**没有**在 baseline 里的：CartItem、Order（这些是运行时产物，应在 `simulate` 或 `seed` 阶段按需创建）。
+
+## 技能执行流程（Skill Execution Flow）
+
+当用户要求生成 validator 时：
+
+### Step 1：解析输入
+
+用户输入形如：
+```
+生成 validator: [任务描述], 模块 [module_name], 编号 [number]
+```
+
+- **任务描述**（必需）：`给张三加购 2 斤有机苹果`
+- **模块名**（可选，默认 `common`）：`order` / `cart` / `product` / ...
+- **编号**（可选，默认自动分配）：`001` / `002` / ...
+
+解析不到模块时：从任务描述猜（含"下单/订单/支付/取消"→`order`；含"购物车/加购"→`cart`；含"结算/结账/收货地址/运费"→`checkout`；含"浏览/搜索/商品/分类/详情"→`catalog`；含"账号/昵称/密码/注册/登录/收货地址管理"→`account`；否则 `common`）。
+
+### Step 2：分配编号
+
+使用 `validator_number_helper.rb`：
+
+```ruby
+require_relative 'validator_number_helper'
+helper = ValidatorNumberHelper.new
+# 如果用户没指定编号
+number = helper.find_next_number('order')           # => "003"
+# 如果用户指定了编号，检查冲突
+info = helper.get_available_number('order', '005')  # => { number: "005", conflict: false }
+# 冲突时自动递增到下一个可用编号，并在输出里明确提示
+```
+
+### Step 3：收集信息（询问或推断）
+
+对应到 `validator-writing.md` 的规范，至少要回答：
+
+1. **题目**：`给/帮 [受益人] + 动词 + 核心目标 + (关键约束)`
+   - ✅ `给张三加购 2 斤有机苹果`
+   - ❌ `CartItem.create(user_id: 1, ...)`（像代码）
+   - ❌ `在 /cart 页面点击 + 按钮两次`（像操作手册）
+2. **受益人**：默认 `demo@rlbox.ai`（即张三），没特殊理由不要改
+3. **涉及模型**：这个任务会读 / 写哪些表？
+4. **验证断言**：怎么判断 Agent 做对了？（2-4 条断言，权重总和 100）
+5. **timeout_seconds**：简单 60-120s，中等 180-240s，复杂 300-600s
+6. **是否需要 seed**：如果题目需要"预制私有数据"（例如购物车里已有 2 个商品，让 Agent 去加第 3 个），用 `seed`；否则不写
+
+### Step 4：生成前 pre-flight
+
+在写文件之前，**先验一下要引用的字段是否真存在**（避免"以为 Product 有 stock"这种坑）：
+
+```bash
+# 查 schema 里实际字段
+bundle exec rails runner "puts Product.columns.map(&:name).join(', ')"
+# 或
+grep -A 40 "CREATE TABLE public.products" db/structure.sql
+```
+
+模板里引用了什么字段，就 grep 什么。不确定就查。
+
+### Step 5：生成文件
+
+1. 读 `TEMPLATE_GOOMART.rb` 作为骨架
+2. 替换 `{占位符}`（见模板注释）
+3. 类名按 **文件名 Pascal 化** 生成（见硬规则 §10）—— 不要把模块名重复塞进类名
+4. 如果需要 `seed`，直接用 `load_refs` pattern（见硬规则 §9）
+5. 写到 `app/validators/{module}/v{NNN}_{module}_validator.rb`
+6. 如果目录不存在，先 `mkdir -p`
+
+### Step 6：自检
+
+生成后立刻跑：
+
+```bash
+bundle exec rake validator:lint
+```
+
+如果 lint 有警告，**修掉再交付**（不要让用户自己处理 lint）。
+
+更强的校验（推荐对每个新 validator 都跑一次）：
+
+```bash
+bundle exec rails runner "V002ReorderPreviousValidator.new.execute_simulate"
+```
+
+`execute_simulate` 会把 prepare + seed + simulate + verify + rollback 全流程跑完，拿到 `status: passed` 才算真的过。
+
+### Step 7：汇报
+
+告诉用户：
+- 生成了哪个文件（绝对路径）
+- validator_id / task_id
+- 权重分布
+- 是否用了 seed（以及 load_refs 里引用了哪些 baseline）
+- lint + execute_simulate 结果
+
+## 完整示例：从需求到文件
+
+**用户输入**：
+```
+生成 validator：给张三下单购买 2 斤有机苹果（总价 < 50 元），模块 order
+```
+
+**执行步骤**：
+1. 模块 = `order`，自动分配编号 `002`（假设 `v001_order_validator.rb` 已存在）
+2. 题目 = `给张三下单购买 2 斤有机苹果（总价 < 50 元）`
+3. 受益人 = `demo@rlbox.ai`
+4. 涉及模型：User / Product / Order / OrderItem
+5. 断言设计：
+   - 订单已创建 (30)
+   - 订单包含苹果 (25)
+   - 数量为 2 (20)
+   - 总价 < 50 (25)
+6. timeout = 180s
+7. 不需要 seed（简单下单，不用预制数据）
+
+**生成文件**：`app/validators/order/v002_buy_apples_validator.rb`
+**类名**：`V002BuyApplesValidator`（文件名 Pascal 化，不带 `Order` 前缀）
+
+## Task UUID
+
+每个 validator 的 `self.task_id` 需要一个唯一 UUID。生成方式：
+
+```ruby
+# 在 Ruby 里
+require 'securerandom'
+SecureRandom.uuid
+# => "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+```
+
+或在 shell 里：
+```bash
+ruby -rsecurerandom -e 'puts SecureRandom.uuid'
+```
+
+Skill 生成时直接写进模板，**不要**用 `SecureRandom.uuid` 作为值（那样每次加载都不同）。
+
+## 反模式速查（见到就停手）
+
+```ruby
+# ❌ 反例 A：simulate 写 '0' 污染 baseline
+def simulate
+  Order.create!(user: @user, data_version: '0')   # NOOO
+end
+
+# ❌ 反例 B：业务表加三件套
+class Product < ApplicationRecord
+  data_version_excluded!                          # ADR-001 禁止
+  default_scope { unscope(where: :data_version) }
+  skip_callback :create, :before, :set_data_version
+end
+
+# ❌ 反例 C：verify 查询漏 data_version
+def verify
+  orders = Order.where(user: @user).to_a          # 会读到其他会话
+end
+
+# ❌ 反例 D：data_version 用整数
+User.find_by!(email: 'demo@rlbox.ai', data_version: 0)  # 应是 '0'
+
+# ❌ 反例 E：prepare 里创建数据（应放 seed / simulate）
+def prepare
+  Address.create!(user: @user, ...)               # ❌ 迁移到 seed
+end
+
+# ❌ 反例 F：在 simulate 里手动 SET SESSION
+def simulate
+  ActiveRecord::Base.connection.execute("SET SESSION app.data_version = ...")
+  # base_validator 已经做过了，别重复
+end
+
+# ❌ 反例 G：seed 里引用 @user（但 @user 在 prepare 里才查）
+# seed 在 prepare 之前执行 → @user 是 nil → belongs_to 校验失败
+def prepare
+  @user = User.find_by!(email: 'demo@rlbox.ai', data_version: '0')
+end
+def seed
+  CartItem.create!(user: @user, ...)   # ❌ @user == nil
+end
+# ✅ 正确：抽 load_refs 私有方法，seed 和 prepare 都调
+
+# ❌ 反例 H：用 be_true / be_false（RSpec 3 已删）
+add_assertion '...', weight: 50 do
+  expect(match_result).to be_true, '...'    # NoMethodError: true.true?
+end
+# ✅ 正确：be_truthy / eq(true) / be true
+
+# ❌ 反例 I：查"自己"集合没加 data_version 过滤
+@home = @user.addresses.first                # 可能拿到 seed 造的私有地址
+# ✅ 正确：
+@home = @user.addresses.where(data_version: '0').order(created_at: :desc).first
+
+# ❌ 反例 J：类名 ≠ 文件名 Pascal（Zeitwerk::NameError）
+# 文件：app/validators/order/v002_reorder_previous_validator.rb
+class V002OrderReorderPreviousValidator < BaseValidator   # ❌ 目录名塞进类名
+# ✅ 正确：class V002ReorderPreviousValidator < BaseValidator
+```
+
+## 会话结束 Checklist
+
+生成完后，按照 [CLAUDE.md 的 Session-End Checklist](../../../CLAUDE.md#-session-end-checklist-agent-必读)：
+
+- [ ] `rake validator:lint` 通过
+- [ ] 如果引入新约定（例如新的 assertion 模式），考虑更新 `validator-writing.md` 或开 ADR
+- [ ] 生成的 validator 实际试跑一次 `execute_simulate` 应返回 `passed`
+
+## 参考
+
+- **模板骨架**：`TEMPLATE_GOOMART.rb`（本目录下）
+- **编号助手**：`validator_number_helper.rb`（本目录下）
+- **🌟 Canonical 示例（带 seed + load_refs）**：`app/validators/cart/v002_change_coconut_variant_validator.rb` —— 完整展示 seed 钩子、load_refs pattern、public/private toggle、data_version 处理
+- **其他 10 个实战 validator**：`app/validators/{catalog,cart,checkout,order,account}/v*.rb`（2026-04-26 批量生成，全部过 lint 和 execute_simulate）
+- **老 validator（无 seed）**：`app/validators/v001_create_post_validator.rb`（根目录，仅供迁移前参考）

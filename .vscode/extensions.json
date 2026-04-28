@@ -1,0 +1,9 @@
+{
+  "// README": "VSCode 打开本仓库时会提示安装这些扩展 —— 用于浏览 docs/ wiki",
+  "recommendations": [
+    "foam.foam-vscode",
+    "yzhang.markdown-all-in-one",
+    "bierner.markdown-mermaid",
+    "davidanson.vscode-markdownlint"
+  ]
+}

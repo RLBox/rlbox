@@ -1,3 +1,5 @@
+> ⚠️ **Archived** — 被 `docs/conventions/environment.md` 取代。
+
 # Project Conventions
 
 This project follows Rails 7.2 standard architecture with specific conventions optimized for stable AI-assisted code generation.
@@ -48,4 +50,3 @@ Running these generators **automatically** updates `config/application.yml`:
 - `rails g llm` - LLM service setup
 
 Check the generated config - if defaults exist, no manual setup needed.
-

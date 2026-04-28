@@ -1,3 +1,5 @@
+> ⚠️ **Archived** — 一次性修复笔记，仅保留作历史参考，勿模仿。
+
 # Session Model Data Version Fix
 
 ## 问题描述

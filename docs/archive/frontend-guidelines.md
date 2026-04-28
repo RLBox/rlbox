@@ -1,3 +1,5 @@
+> ⚠️ **Archived** — 被 `docs/conventions/frontend.md` 取代。
+
 # 前端布局规范（Mobile-First App）
 
 rlbox 是移动优先的应用模板，所有派生项目都通过 `apk/` 目录的 Android TWA 套壳分发。

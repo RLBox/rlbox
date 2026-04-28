@@ -1,3 +1,5 @@
+> ⚠️ **Archived** — 此文件已被新 wiki 体系取代，仅保留作历史参考，勿模仿。
+
 # 如何保证 data_version 过滤不被遗漏
 
 ## 问题背景
@@ -111,7 +113,8 @@ rake validator:lint_single[v033_rent_suv_beijing_validator]
 # lib/tasks/validator.rake
 task simulate: :environment do
   # Step 0.5: Validator Lint (静态分析)
-  puts "\n" + "=" * 70
+  puts "
+" + "=" * 70
   puts "📝 Step 0.5: Validator Lint (静态分析)"
   puts "=" * 70
   
@@ -124,7 +127,8 @@ task simulate: :environment do
     # 如果有 HIGH 级别问题，直接退出
     high_issues = issues.select { |i| i.severity == 'HIGH' }
     if high_issues.any?
-      puts "\n❌ 发现 #{high_issues.size} 个 HIGH 级别问题，请修复后再运行验证器"
+      puts "
+❌ 发现 #{high_issues.size} 个 HIGH 级别问题，请修复后再运行验证器"
       exit 1
     end
   end

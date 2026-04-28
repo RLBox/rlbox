@@ -1,3 +1,5 @@
+> ⚠️ **Archived** — 一次性修复笔记，仅保留作历史参考，勿模仿。
+
 # Validation Tasks API Implementation
 
 ## 问题描述
@@ -289,4 +291,3 @@ result = validator.execute_verify(cleanup: false)
 5. **添加 WebSocket 通知**: 实时更新验证状态
 
 修复完成时间: 2026-04-15
-

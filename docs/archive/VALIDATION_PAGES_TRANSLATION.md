@@ -1,3 +1,5 @@
+> ⚠️ **Archived** — 一次性修复笔记，仅保留作历史参考，勿模仿。
+
 # Validation Tasks Pages - English Translation
 
 ## 已完成的翻译
