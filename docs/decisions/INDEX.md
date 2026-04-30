@@ -19,6 +19,7 @@ updated_at: 2026-04-28
 | [ADR-005](ADR-005-validator-seed-hook.md) | 引入 `seed` 钩子承载题目私有预制数据 | ✅ Accepted | 2026-04-28 |
 | [ADR-006](ADR-006-validators-namespaced-root.md) | Validators 挂到命名空间根，避免与业务模型撞车 | ✅ Accepted | 2026-04-28 |
 | [ADR-007](ADR-007-verify-cross-request-isolation.md) | Validator 执行状态默认不跨请求持久化（verify 用独立实例） | ✅ Accepted | 2026-04-28 |
+| [ADR-010](ADR-010-cqrs-verify-cleanup-split.md) | CQRS 读写分离：verify 纯读 + cleanup 独立端点 | ✅ Accepted | 2026-04-30 |
 
 ## 新建 ADR 模板
 

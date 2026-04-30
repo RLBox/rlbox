@@ -324,9 +324,18 @@ class Validators::BaseValidator
   end
   
   # 执行验证阶段（验证用户操作结果）
-  # cleanup: 是否在验证完成后自动清理数据
-  #   - true: 验证后删除当前 data_version 的所有数据（自动化测试用）
-  #   - false: 验证后保留数据（手动测试用，方便检查）
+  #
+  # ⚠️ CQRS 读写分离（ADR-010）：
+  #   verify 应当是 **纯读操作、幂等、可重复调用**。
+  #   调用方（如 android agent eval_every_step=True）每步都验时，
+  #   绝对不能顺带清数据——那会让第二次 verify 永远 0 分。
+  #
+  # cleanup 参数保留是为了：
+  #   - 向后兼容 execute_simulate 等内部调用链
+  #   - 本地调试一把梭（验完立刻回滚）
+  #
+  # 🚨 对外 HTTP API (POST /api/verify/run) **必须** 传 cleanup: false。
+  # 数据清理请走独立端点 POST /api/sessions/:session_id/cleanup。
   def execute_verify(cleanup: true)
     result = {
       execution_id: @execution_id,
@@ -383,6 +392,56 @@ class Validators::BaseValidator
     # cleanup=true: 自动化测试（execute_simulate）
     # cleanup=false: 手动浏览器测试（用户需要检查数据）
     rollback_to_baseline if cleanup
+    
+    result
+  end
+  
+  # 🆕 执行清理阶段（ADR-010: CQRS 读写分离）
+  #
+  # 独立的清理入口，供外部 HTTP API `POST /api/sessions/:session_id/cleanup` 调用。
+  # 职责单一：只清数据，不验证、不打分。
+  #
+  # 幂等性：**宽松幂等**。约定"调用 cleanup 即代表任务结束"，即使 data_version
+  # 已经被清过（rollback_to_baseline 第二次只会 delete 0 行），也返回成功不报错。
+  #
+  # 使用场景：
+  #   - Agent runner 跑完一个 episode，主动清理释放资源
+  #   - CI 流水线每个 task 跑完强制清
+  #   - benchmark Pass@K 每次迭代结束调一次
+  def execute_cleanup
+    result = {
+      execution_id: @execution_id,
+      cleaned_up: false,
+      data_version: nil
+    }
+    
+    begin
+      # 恢复执行状态以拿到 @data_version（幂等：即使 state 已清，也继续 best-effort）
+      begin
+        restore_execution_state
+      rescue StandardError => e
+        # data_version state 已经被清掉（cleanup_execution_state 执行过），
+        # 属于幂等二次调用的正常分支，直接返回成功。
+        result[:cleaned_up] = true
+        result[:reason] = "execution_state already cleaned: #{e.message}"
+        return result
+      end
+      
+      result[:data_version] = @data_version
+      
+      # 1. 删除 data_version 对应的业务数据
+      rollback_to_baseline
+      
+      # 2. 删除 validator_executions 里的 state 记录
+      cleanup_execution_state
+      
+      result[:cleaned_up] = true
+    rescue StandardError => e
+      # 宽松幂等：捕获所有错误都当作"已清"处理，避免调用方 500 地狱
+      Rails.logger.warn "execute_cleanup swallowed error (treated as idempotent): #{e.message}"
+      result[:cleaned_up] = true
+      result[:reason] = "cleanup with warning: #{e.message}"
+    end
     
     result
   end

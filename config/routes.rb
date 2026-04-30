@@ -55,6 +55,8 @@ Rails.application.routes.draw do
     # Validation tasks API
     post 'tasks/:task_id/start', to: 'tasks#start'
     post 'verify/run', to: 'tasks#verify'
+    # 🆕 CQRS cleanup endpoint (ADR-010) — 独立于 verify 的数据清理入口
+    post 'sessions/:session_id/cleanup', to: 'tasks#cleanup_session'
     delete 'sessions/:session_id', to: 'tasks#remove_session'
     delete 'sessions', to: 'tasks#clear_all_sessions'
     

@@ -9,6 +9,7 @@ related:
   - decisions/ADR-005-validator-seed-hook.md
   - decisions/ADR-006-validators-namespaced-root.md
   - decisions/ADR-007-verify-cross-request-isolation.md
+  - decisions/ADR-010-cqrs-verify-cleanup-split.md
   - decisions/INDEX.md
 ---
 
@@ -289,4 +290,5 @@ end
 - [decisions/ADR-005-validator-seed-hook.md](../decisions/ADR-005-validator-seed-hook.md) — seed 钩子的决策背景
 - [decisions/ADR-006-validators-namespaced-root.md](../decisions/ADR-006-validators-namespaced-root.md) — Validators 命名空间决策
 - [decisions/ADR-007-verify-cross-request-isolation.md](../decisions/ADR-007-verify-cross-request-isolation.md) — verify 跨请求隔离决策
+- [decisions/ADR-010-cqrs-verify-cleanup-split.md](../decisions/ADR-010-cqrs-verify-cleanup-split.md) — CQRS verify/cleanup 分离决策
 - [decisions/INDEX.md](../decisions/INDEX.md) — ADR 总览

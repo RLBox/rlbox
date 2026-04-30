@@ -11,6 +11,7 @@ related:
   - ../decisions/ADR-005-validator-seed-hook.md
   - ../decisions/ADR-006-validators-namespaced-root.md
   - ../decisions/ADR-007-verify-cross-request-isolation.md
+  - ../decisions/ADR-010-cqrs-verify-cleanup-split.md
   - ../conventions/validator-writing.md
 supersedes: ../archive/VALIDATOR_DESIGN.md
 source_files:

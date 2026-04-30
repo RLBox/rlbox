@@ -89,13 +89,13 @@ module Api
       # 创建验证器实例
       validator = validator_class.new(session_id)
       
-      # 运行验证（会自动 restore_execution_state 恢复 @data_version）
-      # cleanup: false 表示不删除测试数据（用于手动测试）
+      # 🔍 只读验证（ADR-010: CQRS 读写分离）
+      # cleanup: false — verify 是纯读操作，必须可重复调用（幂等）。
+      # 数据清理请走独立端点：POST /api/sessions/:session_id/cleanup
       result = validator.execute_verify(cleanup: false)
       
-      # execute_verify 已经更新了 ValidatorExecution 记录
-      # 但我们需要补充设置 is_active = false
-      execution.update!(is_active: false)
+      # 注意：不再在 verify 时设置 is_active=false，
+      # session 的生命周期归 cleanup / remove_session 管。
       
       # 返回验证结果
       render json: {
@@ -108,13 +108,12 @@ module Api
     rescue StandardError => e
       Rails.logger.error "Failed to run validation: #{e.message}\n#{e.backtrace.join("\n")}"
       
-      # 更新 execution 记录为失败
+      # 更新 execution 记录为失败（不设 is_active=false，生命周期归 cleanup 管）
       if execution
         execution.update(
           status: 'failed',
           score: 0.0,
-          verify_result: { error: e.message },
-          is_active: false
+          verify_result: { error: e.message }
         )
       end
       
@@ -127,7 +126,8 @@ module Api
     end
     
     # DELETE /api/sessions/:session_id
-    # 移除指定会话
+    # 移除指定会话（软删除：仅标记 is_active=false，不清数据）
+    # 需要同时清数据请用 POST /api/sessions/:session_id/cleanup
     def remove_session
       session_id = params[:session_id]
       
@@ -145,6 +145,71 @@ module Api
     rescue StandardError => e
       Rails.logger.error "Failed to remove session: #{e.message}"
       render json: { error: "Failed to remove session: #{e.message}" }, status: :internal_server_error
+    end
+    
+    # POST /api/sessions/:session_id/cleanup
+    # 🗑️ 清理会话数据（ADR-010: CQRS 读写分离）
+    #
+    # 独立于 verify 的清理端点。调用语义：
+    #   - 告知系统 "这个 session 的任务已结束，可以清理了"
+    #   - 同时清三样东西：
+    #     1) 业务数据（data_version 对应的所有 DataVersionable 记录）
+    #     2) validator_executions 的 state 记录
+    #     3) session 软删除标记（is_active=false）
+    #
+    # 幂等性：**宽松幂等**。约定"调 cleanup = 任务结束"，第二次调用：
+    #   - 即使 state 已清 / 数据已空 / session 已失活，都返回 200
+    #   - 不 raise、不 500，调用方无需防御
+    def cleanup_session
+      session_id = params[:session_id]
+      
+      unless session_id.present?
+        render json: { error: 'Missing session_id' }, status: :bad_request
+        return
+      end
+      
+      execution = ValidatorExecution.find_by(execution_id: session_id)
+      
+      # 幂等：session 找不到也返回成功（可能是二次调用）
+      unless execution
+        render json: {
+          message: 'Already cleaned (session not found)',
+          session_id: session_id,
+          cleaned_up: true
+        }
+        return
+      end
+      
+      # 找 validator 类，走 execute_cleanup 抽象接口
+      validator_class = find_validator_class(execution.validator_id)
+      
+      if validator_class
+        validator = validator_class.new(session_id)
+        result = validator.execute_cleanup
+      else
+        # validator 类查不到（被改名/删除），降级只清 session 不清业务数据
+        result = { cleaned_up: true, reason: "validator class not found: #{execution.validator_id}" }
+      end
+      
+      # 软删除 session
+      execution.update!(is_active: false)
+      
+      render json: {
+        message: 'Cleaned up successfully',
+        session_id: session_id,
+        cleaned_up: result[:cleaned_up],
+        data_version: result[:data_version],
+        reason: result[:reason]
+      }.compact
+    rescue StandardError => e
+      # 宽松幂等：捕获所有错误，Rails 层记日志但对外返回成功
+      Rails.logger.warn "cleanup_session swallowed error (idempotent): #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      render json: {
+        message: 'Cleaned up with warnings',
+        session_id: session_id,
+        cleaned_up: true,
+        warning: e.message
+      }
     end
     
     # DELETE /api/sessions

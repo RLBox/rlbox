@@ -183,19 +183,21 @@ namespace :validator do
       deleted_total += count
     end
 
-    # Also clean up ValidatorExecution records
-    exec_count = ValidatorExecution.delete_all
-    puts "  ValidatorExecution: deleted #{exec_count}" if exec_count > 0
-
     puts "  → #{deleted_total} test record(s) removed\n\n"
 
+    # Note: ValidatorExecution 是系统表，不参与 data_version 隔离，
+    # 执行记录作为审计日志永久保留，不在 reset_baseline 时清理。
+
     # Step 2: Reload data packs
-    data_packs_dir = Rails.root.join('app/validators/support/data_packs')
-    pack_files = Dir.glob(data_packs_dir.join('**/*.rb')).sort
+    # 规则：所有 v1 版本数据包必须放在 data_packs/v1/ 下（非递归）。
+    # 根目录下的 .rb 不是 data pack（可能是 ARCHITECTURE/README 之类的文档，
+    # 或者误放的旧文件）。扫描与 BaseValidator#ensure_baseline_data_loaded 对齐。
+    data_packs_dir = Rails.root.join('app/validators/support/data_packs/v1')
+    pack_files = Dir.glob(data_packs_dir.join('*.rb')).sort
 
     if pack_files.empty?
       puts '  Step 2: No data packs found — skipping baseline reload.'
-      puts "          Add .rb files to app/validators/support/data_packs/ to define baseline data.\n\n"
+      puts "          Add .rb files to app/validators/support/data_packs/v1/ to define baseline data.\n\n"
       next
     end
 
@@ -284,5 +286,106 @@ namespace :validator do
       puts "  #{rel}"
     end
     puts ''
+  end
+
+  # ---------------------------------------------------------------------------
+  # validator:clear_executions
+  # 清空所有 ValidatorExecution 执行记录（不影响 baseline 数据）
+  # 用途：当执行记录过多时手动清理，或统计需要重新开始时使用
+  # ---------------------------------------------------------------------------
+  desc 'Clear all ValidatorExecution records (keeps baseline data intact)'
+  task clear_executions: :environment do
+    puts "\n=== Clear Validator Executions ===\n\n"
+
+    count = ValidatorExecution.count
+    if count.zero?
+      puts "  No execution records to clear.\n\n"
+      next
+    end
+
+    puts "  Found #{count} execution record(s)."
+    print "  ⚠️  This will permanently delete all test history. Continue? (yes/no): "
+    
+    confirmation = ENV['CONFIRM'] || $stdin.gets.chomp
+    unless confirmation.downcase == 'yes'
+      puts "  Cancelled.\n\n"
+      next
+    end
+
+    ValidatorExecution.delete_all
+    puts "  ✓ Cleared #{count} execution record(s).\n\n"
+  end
+
+  # ---------------------------------------------------------------------------
+  # validator:dump_status
+  # Export latest ValidatorExecution status per validator_id to JSON file.
+  # Usage: rake validator:dump_status
+  # ---------------------------------------------------------------------------
+  desc 'Dump validator execution statuses from DB to db/validator_statuses.json'
+  task dump_status: :environment do
+    json_file = Rails.root.join('db/validator_statuses.json')
+    statuses = {}
+
+    ValidatorExecution.unscoped
+      .where.not(validator_id: nil)
+      .order(:validator_id, created_at: :desc)
+      .group_by(&:validator_id)
+      .each do |vid, execs|
+        latest = execs.first
+        statuses[vid] = {
+          status: latest.status,
+          score: latest.score&.to_f,
+          updated_at: latest.updated_at.iso8601
+        }
+      end
+
+    File.write(json_file, JSON.pretty_generate(statuses) + "\n")
+    puts "✅ Dumped #{statuses.size} validator status(es) to db/validator_statuses.json"
+  end
+
+  # ---------------------------------------------------------------------------
+  # validator:load_status
+  # Restore validator execution statuses from JSON file into DB.
+  # Skips validators that already have an execution record in DB.
+  # Usage: rake validator:load_status
+  # ---------------------------------------------------------------------------
+  desc 'Load validator execution statuses from db/validator_statuses.json into DB'
+  task load_status: :environment do
+    json_file = Rails.root.join('db/validator_statuses.json')
+
+    unless json_file.exist?
+      puts '⚠️  db/validator_statuses.json not found — nothing to load.'
+      next
+    end
+
+    statuses = JSON.parse(File.read(json_file))
+    existing = ValidatorExecution.unscoped
+      .where.not(validator_id: nil)
+      .pluck(:validator_id)
+      .uniq
+
+    loaded  = 0
+    skipped = 0
+
+    statuses.each do |vid, data|
+      if existing.include?(vid)
+        skipped += 1
+        next
+      end
+
+      next if data['status'].blank? || data['status'] == 'pending'
+
+      ValidatorExecution.create!(
+        execution_id: "restored-#{vid}-#{SecureRandom.hex(4)}",
+        validator_id: vid,
+        status: data['status'],
+        score: data['score'],
+        state: { restored_from: 'validator_statuses.json' },
+        is_active: false
+      )
+      loaded += 1
+    end
+
+    puts "✅ Loaded #{loaded} validator status(es) from JSON (#{skipped} already existed, skipped)"
   end
 end

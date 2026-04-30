@@ -22,6 +22,7 @@
 | **seed 钩子 / 题目私有预制数据** | [docs/decisions/ADR-005-validator-seed-hook.md](docs/decisions/ADR-005-validator-seed-hook.md) | P1 |
 | **Validators:: 命名空间 / Zeitwerk push_dir** | [docs/decisions/ADR-006-validators-namespaced-root.md](docs/decisions/ADR-006-validators-namespaced-root.md) | P1 |
 | **verify 跨请求隔离 / 单机绿浏览器红** | [docs/decisions/ADR-007-verify-cross-request-isolation.md](docs/decisions/ADR-007-verify-cross-request-isolation.md) | P1 |
+| **CQRS verify/cleanup 分离 / 为什么 verify 不能顺带清数据** | [docs/decisions/ADR-010-cqrs-verify-cleanup-split.md](docs/decisions/ADR-010-cqrs-verify-cleanup-split.md) | P1 |
 | **前端（Stimulus/Turbo/Icons/ActionCable）** | [docs/conventions/frontend.md](docs/conventions/frontend.md) | P1 |
 | **测试 / rake test / rspec / lint** | [docs/conventions/testing.md](docs/conventions/testing.md) | P1 |
 | **多会话并发 / 多 tab 训练** | [docs/architecture/multi-session.md](docs/architecture/multi-session.md) | P2 |
