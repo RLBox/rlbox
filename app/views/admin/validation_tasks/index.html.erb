@@ -9,37 +9,83 @@
     </div>
   </div>
 
+  <!-- Status Summary Cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <%# Passed %>
+    <%= link_to admin_validation_tasks_path(status: @selected_status == 'passed' ? nil : 'passed', directory: @selected_directory, q: @search_query.presence),
+        class: "rounded-xl p-4 border-2 transition-all #{@selected_status == 'passed' ? 'border-green-500 bg-green-50 dark:bg-green-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-green-300 dark:hover:border-green-700'}" do %>
+      <div class="flex items-center gap-2 mb-1">
+        <div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">已通过</span>
+      </div>
+      <div class="text-2xl font-bold text-green-600 dark:text-green-400"><%= @status_counts['passed'] %></div>
+    <% end %>
+
+    <%# Failed %>
+    <%= link_to admin_validation_tasks_path(status: @selected_status == 'failed' ? nil : 'failed', directory: @selected_directory, q: @search_query.presence),
+        class: "rounded-xl p-4 border-2 transition-all #{@selected_status == 'failed' ? 'border-red-500 bg-red-50 dark:bg-red-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-red-300 dark:hover:border-red-700'}" do %>
+      <div class="flex items-center gap-2 mb-1">
+        <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">未通过</span>
+      </div>
+      <div class="text-2xl font-bold text-red-600 dark:text-red-400"><%= @status_counts['failed'] %></div>
+    <% end %>
+
+    <%# Running %>
+    <%= link_to admin_validation_tasks_path(status: @selected_status == 'running' ? nil : 'running', directory: @selected_directory, q: @search_query.presence),
+        class: "rounded-xl p-4 border-2 transition-all #{@selected_status == 'running' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-yellow-300 dark:hover:border-yellow-700'}" do %>
+      <div class="flex items-center gap-2 mb-1">
+        <div class="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse"></div>
+        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">进行中</span>
+      </div>
+      <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400"><%= @status_counts['running'] %></div>
+    <% end %>
+
+    <%# Pending %>
+    <%= link_to admin_validation_tasks_path(status: @selected_status == 'pending' ? nil : 'pending', directory: @selected_directory, q: @search_query.presence),
+        class: "rounded-xl p-4 border-2 transition-all #{@selected_status == 'pending' ? 'border-gray-500 bg-gray-50 dark:bg-gray-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-600'}" do %>
+      <div class="flex items-center gap-2 mb-1">
+        <div class="w-2.5 h-2.5 rounded-full bg-gray-400 dark:bg-gray-500"></div>
+        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">未执行</span>
+      </div>
+      <div class="text-2xl font-bold text-gray-600 dark:text-gray-400"><%= @status_counts['pending'] %></div>
+    <% end %>
+  </div>
+
   <!-- Filters Section -->
   <div class="mb-6">
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <!-- Directory Filter (Left) -->
       <% unless @search_query.present? %>
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Directory:</span>
-          
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">模块筛选:</span>
+
           <!-- All Tasks Button -->
-          <%= link_to admin_validation_tasks_path, 
+          <%= link_to admin_validation_tasks_path(status: @selected_status),
               class: "px-4 py-2 rounded-lg text-sm font-medium transition-colors #{@selected_directory.nil? ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}" do %>
-            All (<%= @tasks.total_count %>)
+            全部
           <% end %>
-          
+
           <!-- Directory Buttons -->
           <% @directories.each do |directory| %>
-            <%= link_to admin_validation_tasks_path(directory: directory), 
+            <%= link_to admin_validation_tasks_path(directory: directory, status: @selected_status),
                 class: "px-4 py-2 rounded-lg text-sm font-medium transition-colors #{@selected_directory == directory ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}" do %>
               <%= directory %>
             <% end %>
           <% end %>
         </div>
       <% end %>
-      
+
       <!-- Search Box (Right) -->
       <div class="<%= @search_query.present? ? 'w-full' : 'ml-auto' %>">
         <%= form_with url: admin_validation_tasks_path, method: :get, class: "max-w-md" do |f| %>
+          <% if @selected_status.present? %>
+            <%= f.hidden_field :status, value: @selected_status %>
+          <% end %>
           <div class="relative">
-            <%= f.text_field :q, 
+            <%= f.text_field :q,
                 value: @search_query,
-                placeholder: "Search by task ID, title or description",
+                placeholder: "搜索任务 ID、标题或描述",
                 class: "w-full px-4 py-2 pl-10 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" %>
             <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -47,7 +93,7 @@
               </svg>
             </div>
             <% if @search_query.present? %>
-              <%= link_to admin_validation_tasks_path, class: "absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" do %>
+              <%= link_to admin_validation_tasks_path(status: @selected_status), class: "absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" do %>
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
@@ -57,7 +103,7 @@
         <% end %>
         <% if @search_query.present? %>
           <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Found results for "<span class="font-semibold"><%= @search_query %></span>" - <%= @tasks.total_count %> results
+            搜索 "<span class="font-semibold"><%= @search_query %></span>" — <%= @tasks.total_count %> 条结果
           </div>
         <% end %>
       </div>
@@ -72,27 +118,100 @@
           <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48">Task ID</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">Task Name</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">Description</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">
+                  <%= link_to admin_validation_tasks_path(sort: @sort == 'status' ? 'status_asc' : 'status', directory: @selected_directory, status: @selected_status, q: @search_query.presence),
+                      class: "flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200" do %>
+                    状态
+                    <% if @sort == 'status' %>
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    <% elsif @sort == 'status_asc' %>
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"/></svg>
+                    <% end %>
+                  <% end %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">
+                  <%= link_to admin_validation_tasks_path(sort: 'score', directory: @selected_directory, status: @selected_status, q: @search_query.presence),
+                      class: "flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200" do %>
+                    得分
+                    <% if @sort == 'score' %>
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    <% end %>
+                  <% end %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48">
+                  <%= link_to admin_validation_tasks_path(sort: 'name', directory: @selected_directory, status: @selected_status, q: @search_query.presence),
+                      class: "flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200" do %>
+                    Task ID
+                    <% if @sort == 'name' %>
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                    <% end %>
+                  <% end %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">任务名称</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">Timeout</th>
               </tr>
             </thead>
             <tbody class="bg-gray-50 dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
               <% @tasks.each do |task| %>
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <%# Status badge %>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <% case task[:execution_status] %>
+                    <% when 'passed' %>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        通过
+                      </span>
+                    <% when 'failed' %>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                        未通过
+                      </span>
+                    <% when 'running' %>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300">
+                        <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        进行中
+                      </span>
+                    <% else %>
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+                        未执行
+                      </span>
+                    <% end %>
+                  </td>
+
+                  <%# Score %>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <% if task[:execution_score].present? %>
+                      <% score_val = (task[:execution_score].to_f * 100).round %>
+                      <span class="text-sm font-bold <%= score_val >= 100 ? 'text-green-600 dark:text-green-400' : score_val > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400' %>">
+                        <%= score_val %><span class="text-xs font-normal text-gray-400">/100</span>
+                      </span>
+                    <% else %>
+                      <span class="text-sm text-gray-400 dark:text-gray-500">—</span>
+                    <% end %>
+                  </td>
+
+                  <%# Task ID %>
                   <td class="px-6 py-4 text-sm font-mono max-w-xs break-words">
                     <%= link_to task[:validator_id], admin_validation_task_path(task[:validator_id]), class: "text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline" %>
                     <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       <%= task[:task_id] %>
                     </div>
                   </td>
-                  <td class="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    <%= task[:title] %>
+
+                  <%# Title + Description combined %>
+                  <td class="px-6 py-4 max-w-md">
+                    <div class="text-sm font-semibold text-gray-900 dark:text-gray-100"><%= task[:title] %></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2"><%= task[:description] %></div>
+                    <% if task[:execution_time].present? %>
+                      <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        最后执行: <%= time_ago_in_words(task[:execution_time]) %>前
+                      </div>
+                    <% end %>
                   </td>
-                  <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 max-w-md">
-                    <%= task[:description] %>
-                  </td>
+
+                  <%# Timeout %>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                     <%= task[:timeout] %>s
                   </td>
@@ -104,9 +223,9 @@
 
         <!-- Pagination -->
         <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-          <%= paginate @tasks, theme: 'custom', 
-              params: { directory: @selected_directory, q: @search_query }.compact,
-              outer_window: 2, 
+          <%= paginate @tasks, theme: 'custom',
+              params: { directory: @selected_directory, q: @search_query, status: @selected_status, sort: @sort }.compact,
+              outer_window: 2,
               window: 3 %>
         </div>
       <% else %>
@@ -118,20 +237,24 @@
           </div>
           <h3 class="text-lg font-medium text-gray-900 dark:text-gray-50 mb-2">
             <% if @search_query.present? %>
-              No matching validation tasks found
+              未找到匹配的验证任务
+            <% elsif @selected_status.present? %>
+              该状态下没有验证任务
             <% elsif @selected_directory.present? %>
-              No validation tasks in this directory
+              该目录下没有验证任务
             <% else %>
-              No validation tasks yet
+              暂无验证任务
             <% end %>
           </h3>
           <p class="text-gray-500 dark:text-gray-400">
             <% if @search_query.present? %>
-              Try using different keywords or <%= link_to 'clear search', admin_validation_tasks_path, class: 'text-blue-600 dark:text-blue-400 hover:underline' %>
+              试试其他关键词或 <%= link_to '清除搜索', admin_validation_tasks_path, class: 'text-blue-600 dark:text-blue-400 hover:underline' %>
+            <% elsif @selected_status.present? %>
+              <%= link_to '查看全部任务', admin_validation_tasks_path, class: 'text-blue-600 dark:text-blue-400 hover:underline' %>
             <% elsif @selected_directory.present? %>
-              尝试选择其他目录或查看All任务
+              尝试选择其他目录或查看全部任务
             <% else %>
-              Please create validators in the app/validators/ directory.
+              请在 app/validators/ 目录下创建验证器。
             <% end %>
           </p>
         </div>

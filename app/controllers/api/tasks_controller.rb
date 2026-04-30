@@ -97,6 +97,9 @@ module Api
       # 注意：不再在 verify 时设置 is_active=false，
       # session 的生命周期归 cleanup / remove_session 管。
       
+      # 写入 JSON 状态文件（主权威，面板直接读 JSON）
+      persist_validator_status!(task_id, result[:status], result[:score])
+      
       # 返回验证结果
       render json: {
         score: result[:score],
@@ -108,14 +111,8 @@ module Api
     rescue StandardError => e
       Rails.logger.error "Failed to run validation: #{e.message}\n#{e.backtrace.join("\n")}"
       
-      # 更新 execution 记录为失败（不设 is_active=false，生命周期归 cleanup 管）
-      if execution
-        execution.update(
-          status: 'failed',
-          score: 0.0,
-          verify_result: { error: e.message }
-        )
-      end
+      # 写入失败状态到 JSON
+      persist_validator_status!(task_id, 'failed', 0.0) if task_id.present?
       
       render json: { 
         error: "Validation failed: #{e.message}",
@@ -270,6 +267,37 @@ module Api
       end
       
       nil
+    end
+
+    # 将 validator 的执行结果持久化到 db/validator_statuses.json（主权威）。
+    #
+    # 并发安全：用 File::LOCK_EX 独占锁，保证多 session 并发跑不互相覆盖。
+    # 锁粒度是整个 JSON 文件，写入时间极短（< 1ms），对吞吐量无影响。
+    def persist_validator_status!(validator_id, status, score)
+      path = Rails.root.join('db/validator_statuses.json')
+
+      File.open(path, File::RDWR | File::CREAT) do |f|
+        f.flock(File::LOCK_EX)
+
+        # 读现有内容（文件可能刚创建为空）
+        content = f.read
+        statuses = content.present? ? JSON.parse(content) : {}
+
+        # 更新目标 validator 条目
+        statuses[validator_id] = {
+          'status'     => status,
+          'score'      => score,
+          'updated_at' => Time.current.iso8601
+        }
+
+        # 回写
+        f.rewind
+        f.write(JSON.pretty_generate(statuses))
+        f.truncate(f.pos)
+      end
+    rescue StandardError => e
+      # 写 JSON 失败只记日志，不影响 verify 主流程返回
+      Rails.logger.warn "persist_validator_status! failed for #{validator_id}: #{e.message}"
     end
   end
 end

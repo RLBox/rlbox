@@ -600,13 +600,19 @@
     }
   }
 
-  // Remove指定会话
+  // Remove指定会话：先清 UI，再后台调 cleanup API
   function removeSession(sessionId) {
+    // 1. 立刻从本地列表移除（UI 即时响应）
     const index = sessions.findIndex(s => s.id === sessionId);
     if (index > -1) {
       sessions.splice(index, 1);
       renderSessions();
     }
+
+    // 2. 后台调 cleanup 端点清业务数据 + execution state
+    //    宽松幂等，失败不影响 UI（可能已被清过）
+    fetch(`/api/sessions/${sessionId}/cleanup`, { method: 'POST' })
+      .catch(e => console.warn('cleanup 调用异常（可能已清理）:', e.message));
   }
 
   // Toast 提示函数
