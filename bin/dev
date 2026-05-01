@@ -40,6 +40,17 @@ unless system('gem list --installed --exact --silent foreman')
   system('gem install foreman') || exit(1)
 end
 
+# Load .env if present (gives .env highest priority before EnvChecker reads ENV)
+env_file = File.expand_path('../.env', __dir__)
+if File.exist?(env_file)
+  File.readlines(env_file).each do |line|
+    line = line.strip
+    next if line.empty? || line.start_with?('#')
+    key, value = line.split('=', 2)
+    ENV[key.strip] ||= value.strip if key && value
+  end
+end
+
 # Load EnvChecker for centralized port detection
 require_relative '../lib/env_checker'
 
