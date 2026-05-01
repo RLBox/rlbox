@@ -12,7 +12,11 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 /**
  * 自定义 WebView Fallback Activity
@@ -29,7 +33,7 @@ public class CustomWebViewFallbackActivity extends AppCompatActivity {
         // 设置状态栏颜色和样式
         getWindow().setStatusBarColor(Color.parseColor("RLBOX_THEME_COLOR")); // 设置状态栏背景色
 
-        // 设置浅色状态栏（状态栏图标为深色），不延伸到状态栏下方
+        // 设置浅色状态栏（状态栏图标为深色）
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR  // 状态栏图标使用深色
         );
@@ -89,7 +93,26 @@ public class CustomWebViewFallbackActivity extends AppCompatActivity {
         // WebChromeClient
         webView.setWebChromeClient(new WebChromeClient());
 
-        setContentView(webView);
+        // Android 15+ (API 35+) edge-to-edge enforcement：必须手动处理系统栏 insets，
+        // 否则 WebView 会铺到状态栏/导航栏下面，网页顶部被时间/5G/电池图标压住。
+        // 做法：套一层 FrameLayout 当 root，监听器挂在 root 上（root 一定能收到 insets），
+        // 然后给 root 加 padding 腾出状态栏 + 导航栏 + 刘海的空间。
+        // root 的背景色和状态栏色一致（RLBOX_THEME_COLOR），视觉上状态栏是 app header 的延伸。
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.parseColor("RLBOX_THEME_COLOR"));
+        root.addView(webView, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
+            );
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return WindowInsetsCompat.CONSUMED;
+        });
+
+        setContentView(root);
 
         // 构建最终 URL
         String finalUrl = buildLaunchUrl();
