@@ -12,7 +12,7 @@
 |------|---------|------|
 | JDK | 17+ | `java -version` 确认 |
 | Android SDK | API 33+ | 需要 `build-tools` 和 `platform-tools` |
-| Python | 3.10+ | 用于 setup / gen_icons 脚本 |
+| Python | 3.10+ | 用于 setup / gen_icons / build 脚本 |
 | Pillow | 任意 | 图标生成依赖，`pip install Pillow` |
 
 > **注意**：`./gradlew` 会自动下载对应版本的 Gradle，无需手动安装。
@@ -60,15 +60,37 @@ python3 apk/bin/gen_icons
 
 ### 第四步：构建 APK
 
+推荐用统一的 `build` 脚本，一条命令搞定 debug/release：
+
 ```bash
-cd apk
-./gradlew assembleRelease
+apk/bin/build                  # debug 版（默认，用 Android SDK 自带 debug 签名）
+apk/bin/build --release        # release 版（需 app/build.gradle 配好 signingConfigs.release）
+apk/bin/build --release --install    # 打包后自动 adb install -r 到当前 emulator
+apk/bin/build --clean --release      # 先 clean 再打
 ```
 
-构建产物位于：
-```
-apk/app/build/outputs/apk/release/app-release.apk
-```
+脚本会：
+1. 调 `./gradlew assemble<Debug|Release>` 打包
+2. 把产物复制到 `apk/<slug>-<variant>.apk`（slug 取自 `applicationId` 最后一段），方便分发
+3. `--install` 传入时还会 `adb install -r` 到当前在线设备
+
+产物位置：
+
+| 变体 | Gradle 原始产物 | 复制后（方便分发） |
+|---|---|---|
+| debug | `apk/app/build/outputs/apk/debug/app-debug.apk` | `apk/<slug>-debug.apk` |
+| release | `apk/app/build/outputs/apk/release/app-release.apk` | `apk/<slug>-release.apk` |
+
+> **release 版前置**：`app/build.gradle` 里要有 `signingConfigs.release` 指向一个真实 keystore。
+> 生成 keystore 示例：
+> ```bash
+> keytool -genkey -v -keystore apk/android.keystore \
+>   -alias android -keyalg RSA -keysize 2048 -validity 10000 \
+>   -storepass <PWD> -keypass <PWD> \
+>   -dname 'CN=app, O=org, C=CN'
+> ```
+> 然后把密码写到 `app/build.gradle` 的 `signingConfigs.release { storePassword '<PWD>'; keyPassword '<PWD>'; storeFile file('../android.keystore'); keyAlias 'android' }`。
+> `apk/android.keystore` 和密码**不要提交到公开仓库**，走私有仓库或 CI secrets。
 
 ---
 
