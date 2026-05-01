@@ -82,6 +82,7 @@ apk/app/build/outputs/apk/release/app-release.apk
 | `RLBOX_APP_NAME` | 应用显示名称 | `MyApp` |
 | `RLBOX_THEME_COLOR` | 主题色（状态栏颜色） | `#3B82F6` |
 | `RLBOX_HOST` | 应用域名（不含 `https://`） | `app.example.com` |
+| `RLBOX_API_KEY_PREFIX` | Settings.Global 键前缀（一般 = app slug，用于区分多 APK 装同一设备时的 adb 配置） | `myapp`（生成 `myapp_api_endpoint` 等键） |
 
 涉及的文件共 10 个：
 

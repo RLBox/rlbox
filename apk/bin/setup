@@ -29,6 +29,7 @@ PLACEHOLDER_PACKAGE = "RLBOX_PACKAGE_ID"
 PLACEHOLDER_NAME    = "RLBOX_APP_NAME"
 PLACEHOLDER_COLOR   = "RLBOX_THEME_COLOR"
 PLACEHOLDER_HOST    = "RLBOX_HOST"
+PLACEHOLDER_KEY_PREFIX = "RLBOX_API_KEY_PREFIX"
 
 
 # ── 工具函数 ────────────────────────────────────────────────────────────────
@@ -53,11 +54,23 @@ def validate_color(value: str) -> bool:
     return bool(re.match(r'^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$', value))
 
 
-def ask(prompt: str, validator=None, example: str = "") -> str:
-    hint = f" (e.g. {example})" if example else ""
+def validate_key_prefix(value: str) -> bool:
+    """合法的 Settings.Global 键名前缀：小写字母/数字/下划线，首字符字母"""
+    return bool(re.match(r'^[a-z][a-z0-9_]*$', value))
+
+
+def ask(prompt: str, validator=None, example: str = "", default: str = "") -> str:
+    hint_parts = []
+    if default:
+        hint_parts.append(f"default: {default}")
+    elif example:
+        hint_parts.append(f"e.g. {example}")
+    hint = f" ({', '.join(hint_parts)})" if hint_parts else ""
     while True:
         value = input(f"{prompt}{hint}: ").strip()
         if not value:
+            if default:
+                return default
             print("  ⚠️  不能为空，请重新输入")
             continue
         if validator and not validator(value):
@@ -99,12 +112,19 @@ def main():
     host        = ask("4. 应用域名（不含 https://）",
                        example="app.example.com")
 
+    # api_key_prefix 默认取 package_id 的最后一段（com.sengclaw.duvy → duvy）
+    default_prefix = package_id.split(".")[-1].lower()
+    api_key_prefix = ask("5. Settings.Global 键前缀（用于一机多 APK 隔离）",
+                         validator=validate_key_prefix,
+                         default=default_prefix)
+
     print()
     print("── 确认以下配置 ───────────────────────")
     print(f"  Package ID : {package_id}")
     print(f"  应用名称   : {app_name}")
     print(f"  主题色     : {theme_color}")
     print(f"  域名       : {host}")
+    print(f"  键前缀     : {api_key_prefix}  (生成 {api_key_prefix}_api_endpoint 等)")
     print()
     confirm = input("确认？(y/N): ").strip().lower()
     if confirm != "y":
@@ -144,10 +164,11 @@ def main():
 
     # ── Step 2: 文本替换 ──
     replacements = [
-        (PLACEHOLDER_PACKAGE, package_id),
-        (PLACEHOLDER_NAME,    app_name),
-        (PLACEHOLDER_COLOR,   theme_color),
-        (PLACEHOLDER_HOST,    host),
+        (PLACEHOLDER_PACKAGE,    package_id),
+        (PLACEHOLDER_NAME,       app_name),
+        (PLACEHOLDER_COLOR,      theme_color),
+        (PLACEHOLDER_HOST,       host),
+        (PLACEHOLDER_KEY_PREFIX, api_key_prefix),
     ]
 
     # 静态文件列表（不含 Java 源码）

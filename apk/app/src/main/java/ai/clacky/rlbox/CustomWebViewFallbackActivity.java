@@ -111,7 +111,7 @@ public class CustomWebViewFallbackActivity extends AppCompatActivity {
                    "<h2>配置错误</h2>" +
                    "<p>请先配置 API 服务器地址：</p>" +
                    "<code style='background:#fff;padding:10px;display:block;margin:20px;border-radius:5px;'>" +
-                   "adb shell settings put global app_api_endpoint http://YOUR_SERVER:PORT" +
+                   "adb shell settings put global RLBOX_API_KEY_PREFIX_api_endpoint http://YOUR_SERVER:PORT" +
                    "</code>" +
                    "</body></html>";
         }

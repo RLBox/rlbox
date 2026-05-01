@@ -11,10 +11,10 @@ import android.util.Log;
 public class ConfigHelper {
     private static final String TAG = "ConfigHelper";
 
-    // 配置键名（与 adb 命令中的 key 对应）
-    public static final String KEY_API_ENDPOINT = "app_api_endpoint";
-    public static final String KEY_SESSION_ID = "app_session_id";
-    public static final String KEY_TASK_ID = "app_task_id";
+    // 配置键名（与 adb 命令中的 key 对应，带 app slug 前缀 "RLBOX_API_KEY_PREFIX_" 以支持一机多 APK）
+    public static final String KEY_API_ENDPOINT = "RLBOX_API_KEY_PREFIX_api_endpoint";
+    public static final String KEY_SESSION_ID = "RLBOX_API_KEY_PREFIX_session_id";
+    public static final String KEY_TASK_ID = "RLBOX_API_KEY_PREFIX_task_id";
 
     /**
      * 读取全局配置
