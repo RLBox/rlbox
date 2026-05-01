@@ -21,6 +21,7 @@ updated_at: 2026-05-01
 | [ADR-007](ADR-007-verify-cross-request-isolation.md) | Validator 执行状态默认不跨请求持久化（verify 用独立实例） | ✅ Accepted | 2026-04-28 |
 | [ADR-010](ADR-010-cqrs-verify-cleanup-split.md) | CQRS 读写分离：verify 纯读 + cleanup 独立端点 | ✅ Accepted | 2026-04-30 |
 | [ADR-011](ADR-011-bin-dev-loads-dotenv.md) | bin/dev 加载 .env 实现本地端口隔离（多派生项目并跑） | ✅ Accepted | 2026-05-01 |
+| [ADR-012](ADR-012-app-style-home-spec-adaptation.md) | Native-app 风格首页的 spec 适配策略（dual-nav / 无 floating navbar） | ✅ Accepted | 2026-05-01 |
 
 ## 新建 ADR 模板
 

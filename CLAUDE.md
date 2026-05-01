@@ -25,6 +25,7 @@
 | **CQRS verify/cleanup 分离 / 为什么 verify 不能顺带清数据** | [docs/decisions/ADR-010-cqrs-verify-cleanup-split.md](docs/decisions/ADR-010-cqrs-verify-cleanup-split.md) | P1 |
 | **前端（Stimulus/Turbo/Icons/ActionCable）** | [docs/conventions/frontend.md](docs/conventions/frontend.md) | P1 |
 | **测试 / rake test / rspec / lint** | [docs/conventions/testing.md](docs/conventions/testing.md) | P1 |
+| **首页是 native-app 风格（双 nav / 无 floating navbar） → spec 怎么适配** | [docs/decisions/ADR-012-app-style-home-spec-adaptation.md](docs/decisions/ADR-012-app-style-home-spec-adaptation.md) | P1 |
 | **多会话并发 / 多 tab 训练** | [docs/architecture/multi-session.md](docs/architecture/multi-session.md) | P2 |
 | **新分支初始化/部署** | [docs/conventions/new-branch.md](docs/conventions/new-branch.md) | P2 |
 | **环境变量 / 平台约定** | [docs/conventions/environment.md](docs/conventions/environment.md) | P2 |

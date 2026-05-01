@@ -98,6 +98,20 @@ RSpec.describe "Authenticated Access", type: :request do
       skip "Home page not yet created" unless File.exist?(Rails.root.join(home_index_file))
 
       content = File.read(Rails.root.join(home_index_file))
+
+      # Skip for app-style home (native-app 风格定制首页，如得物 / 小红书 / 抖音)
+      # 这些首页通常：1) 关掉 shared _navbar（@full_render=true）；2) 自带 sticky 顶部 header；
+      # 3) 底部有 bottom tab bar。此时无 floating navbar，无需 pt-24 padding 让位。
+      # 参见 ADR-012。
+      app_style_signals = [
+        content.include?('@full_render'),
+        content.match?(/render\s+['"]home\/bottom_nav['"]/),
+        content.match?(/nav[^>]*class=["'][^"']*fixed[^"']*bottom-0/)
+      ]
+      if app_style_signals.any?
+        skip "app-style home detected (@full_render / bottom_nav) — floating navbar padding not applicable (see ADR-012)"
+      end
+
       doc = Nokogiri::HTML::DocumentFragment.parse(content)
 
       # Find first section as direct child of container

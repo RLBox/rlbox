@@ -19,7 +19,11 @@ RSpec.describe "Home", type: :request do
 
       doc = Nokogiri::HTML(response.body)
 
-      # Check 1: No duplicate headers (navigation bars)
+      # Check 1: Navigation structure sanity
+      # Rationale: rlbox 模板默认只允许 1 个 <nav>（避免重复渲染 _navbar）。但 native-app 风格
+      # 首页（得物 / 小红书 / 抖音 等）通常"关掉 shared navbar + 顶部 sticky header + 底部 tab bar"，
+      # 天然就有 1~2 个 <nav>。因此检测到"得物风 dual-nav"信号时放宽到 ≤2，否则保持严格 ≤1。
+      # 参见 ADR-012。
       nav_count = doc.css('nav').count
 
       # Find headers with auth links: sign_in/sign_out, login/logout, or session (any one counts)
@@ -29,10 +33,27 @@ RSpec.describe "Home", type: :request do
         header.css('a[href*="sign_in"], a[href*="sign_out"], a[href*="login"], a[href*="logout"], a[href*="session"]').any?
       end
 
+      has_bottom_nav = doc.css('nav').any? do |n|
+        cls = n['class'].to_s
+        cls.include?('fixed') && cls.include?('bottom-0')
+      end
+      has_shared_navbar = doc.css('nav, header').any? do |n|
+        n['data-clacky-source-loc'].to_s.include?('shared/_navbar')
+      end
+      app_style_home = has_bottom_nav && !has_shared_navbar
+
+      max_nav = app_style_home ? 2 : 1
       total_navigation = nav_count + nav_headers.count
-      expect(total_navigation).to be <= 1,
-        "Found #{total_navigation} navigation elements (#{nav_count} <nav> + #{nav_headers.count} header). " \
+      expect(total_navigation).to be <= max_nav,
+        "Found #{total_navigation} navigation elements (#{nav_count} <nav> + #{nav_headers.count} header, " \
+        "app_style_home=#{app_style_home}, max allowed=#{max_nav}). " \
         "Remove duplicate header from view as shared/_navbar.html.erb is automatically rendered in the layout."
+
+      # Positive assertions for app-style home: 守住定制意图
+      if app_style_home
+        expect(has_bottom_nav).to be_truthy,
+          "app-style home must keep bottom tab bar (nav.fixed.bottom-0)"
+      end
 
       # Check 2: No demo placeholder links
       bad_links = doc.css('a[href="#"], a[href="#!"], a[href^="javascript:"]')
