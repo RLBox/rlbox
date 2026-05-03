@@ -42,7 +42,7 @@
 2. **创建业务表** → 用 `rails g model` / `rails g models`（自动加 `data_version`）。❌ 禁止手写 `rails g migration CreateXxx`。
 3. **新业务表建好 migration 后** → **必跑** `bin/rails g rls_policy <table>`（ADR-014），否则跨 session 写保护失效。提交前 `bin/rake validator:lint_schema` 必须绿（ADR-016）。
 4. **加 baseline 数据** → 只走 `app/validators/support/data_packs/v1/`。❌ `db/seeds.rb` 不是入口。跨 pack 依赖用文件头 `# depends_on: a, b` 声明（ADR-015），**不要**用字母序 hack 文件名。
-5. **三件套**（`data_version_excluded!` + `unscope default_scope` + `skip_callback :set_data_version`）**仅限系统表**：Administrator / Session / AdminOplog / ValidatorExecution / ActiveStorage\*。❌ 业务表绝不用。
+5. **二件套**（`data_version_excluded!` + `default_scope { unscope(where: :data_version) }`）**仅限系统表**：Administrator / Session / AdminOplog / ValidatorExecution / ActiveStorage\*。❌ 业务表绝不用。（富版 `data_version_excluded!` 内部自动 skip 三次 callback，不要再手写 `skip_callback`——2026-05-03 ADR-003 修订）
 6. **会话结束前** → 按本文末 [📝 Session-End Checklist](#-session-end-checklist) 更新 wiki。
 
 ### 📛 反例代码（直接贴这里，别去猜）
@@ -50,13 +50,12 @@
 > 以下代码**曾造成实际事故**，`rake docs:lint` 会静态扫描复现。见到这类 pattern 立刻停手。
 
 ```ruby
-# ❌ 反例 1：业务表用三件套（污染 baseline，违反 ADR-001/003）
+# ❌ 反例 1：业务表用二件套（污染 baseline，违反 ADR-001/003）
 class Category < ApplicationRecord          # Category 是业务表！
   data_version_excluded!                     # ← 只允许系统表
   default_scope { unscope(where: :data_version) }
-  skip_callback :create, :before, :set_data_version
 end
-# ✅ 正确：确保 migration 含 data_version 列，删掉三件套。流程见 adding-models.md 场景 E
+# ✅ 正确：确保 migration 含 data_version 列，删掉二件套。流程见 adding-models.md 场景 E
 ```
 
 ```ruby

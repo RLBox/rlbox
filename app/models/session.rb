@@ -1,20 +1,22 @@
 class Session < ApplicationRecord
-  # 系统模型，排除 data_version 隔离（ADR-003 "trio" pattern）
+  # 系统模型，排除 data_version 隔离（ADR-003 修订版，2026-05-03 tech-debt-cleanup）
   #
   # Session 是系统表：认证状态必须跨 baseline reset / session rollback 持久化，
   # 不参与 data_version 软隔离方案。
   #
-  # 三件套（trio）用来抵消 ApplicationRecord include DataVersionable 引入的
-  # 自动行为：
-  #   1. data_version_excluded!  → lint_schema 识别为系统表，不要求 4-op RLS policy
-  #   2. unscope default_scope   → 抵消 where(data_version: ...) 默认过滤
-  #   3. skip_callback ...       → 抵消 before_create :set_data_version
+  # 富版 `data_version_excluded!` 已经在宏内部完成：
+  #   - unregister_model（不被视为业务表）
+  #   - register_excluded（lint_schema 识别，免 4-op RLS policy）
+  #   - skip_callback :set_data_version（create）
+  #   - skip_callback :prevent_baseline_mutation!（update / destroy）
   #
-  # 第 2、3 件在 sessions.data_version 列被删除后（2026-05-03 tech-debt-cleanup P1.3）
-  # 依旧必需：否则 DataVersionable 会尝试给不存在的 data_version 列赋值而崩溃。
+  # 但 `default_scope { unscope(where: :data_version) }` **仍需手动写**：
+  # ApplicationRecord 的 default_scope `where(data_version: ...)` 会被 has_many
+  # 关联通过 "default values from scope" 继承，给新 build 对象自动赋 data_version=
+  # 属性——而 sessions 表已经 drop 了 data_version 列（P1.3），会抛
+  # ActiveModel::UnknownAttributeError。unscope 是必需的"二件套"第二件。
   data_version_excluded!
   default_scope { unscope(where: :data_version) }
-  skip_callback :create, :before, :set_data_version
 
   belongs_to :user
 

@@ -1,9 +1,10 @@
 class Administrator < ApplicationRecord
   # System model — globally visible, not scoped per validator session
+  # 富版 `data_version_excluded!` 已在宏内部完成 register_excluded + unregister_model + skip_callback，
+  # 但 `default_scope unscope(where: :data_version)` **仍需手动写**——
+  # ApplicationRecord default_scope 会被 has_many 继承，导致 build 时给无 data_version 列的表赋值崩溃。
   data_version_excluded!
-  # 不使用 data_version 机制：移除 default_scope 和 before_create 回调
   default_scope { unscope(where: :data_version) }
-  skip_callback :create, :before, :set_data_version
 
   validates :name, presence: true, uniqueness: true
   validates :role, presence: true, inclusion: { in: %w[admin super_admin] }
