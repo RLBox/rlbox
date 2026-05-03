@@ -449,11 +449,31 @@ namespace :validator do
       errors << "Model for table '#{t}' includes DataVersionable but table has no `data_version` column"
     end
 
-    # 2. 表有 data_version 列但模型没 include concern
+    # 2. 表有 data_version 列但模型没 include concern（或是系统表但忘了 data_version_excluded!）
     not_registered = db_tables_with_column - registered_tables
     not_registered.each do |t|
-      errors << "Table '#{t}' has `data_version` column but no model includes DataVersionable for it " \
-                '(SELECT will leak across sessions, writes will bypass set_data_version callback)'
+      # 检查是否是"模型存在但用 data_version_excluded! 排除了"的系统表场景
+      all_models_for_table = DataVersionable.models.select { |m| m.table_name == t }
+      excluded = all_models_for_table.any? { |m| DataVersionable.excluded_models.include?(m) }
+
+      if excluded
+        # 已在模型层显式排除（系统表场景），降级为 warning 并建议清掉列
+        warnings << "Table '#{t}' has `data_version` column but its model uses data_version_excluded! " \
+                    '(system table). The column is dead weight — consider dropping it via migration ' \
+                    "(`remove_column :#{t}, :data_version`). See ADR-003."
+      elsif all_models_for_table.empty?
+        # 真·孤儿表：表存在但没任何模型
+        errors << "Table '#{t}' has `data_version` column but no model is registered for it. " \
+                  'Either this is an orphan table (drop it) or a model needs to `include DataVersionable` ' \
+                  "(which ApplicationRecord does automatically). \n" \
+                  "    Fix: `rails g migration Drop#{t.camelize}` or check app/models/#{t.singularize}.rb"
+      else
+        # 有模型但没 include concern（现在几乎不会发生，因为 ApplicationRecord 自动 include）
+        errors << "Table '#{t}' has `data_version` column but its model(s) " \
+                  "[#{all_models_for_table.map(&:name).join(', ')}] do NOT include DataVersionable. " \
+                  'This will cause default_scope to fail and writes to bypass set_data_version callback. ' \
+                  'Ensure the model inherits from ApplicationRecord.'
+      end
     end
 
     # 3. 表有 data_version 列但 RLS policy 数量 < 4
