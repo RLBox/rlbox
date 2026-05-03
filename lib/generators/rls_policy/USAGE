@@ -1,0 +1,33 @@
+Description:
+    Generate a migration that installs 4-op PostgreSQL Row-Level Security (RLS) policies
+    on a single table. Used to backfill RLS on tables added after the initial RLS migration,
+    or to equip a brand-new business table with proper write protection.
+
+    The generated migration idempotently:
+      1. DROPs any legacy `FOR ALL` policy (named <table>_version_policy)
+      2. DROPs any existing <table>_{select,insert,update,delete}_policy
+      3. ENABLEs + FORCEs RLS on the table
+      4. CREATEs 4 policies:
+         - SELECT: allow baseline (data_version='0') OR current session
+         - INSERT/UPDATE/DELETE: reject baseline unless app.baseline_loading='on'
+           AND only allow current session (data_version = current_setting('app.data_version'))
+
+    Prerequisites:
+      - The table must already have a `data_version` column (added by rails g model).
+      - The project must already have the base RLS migrations applied
+        (enable_rls_on_business_tables + split_rls_policies_by_operation).
+        If not, run `rake validator:lint_schema` first to confirm.
+
+Example:
+    bin/rails g rls_policy posts
+
+    This will create:
+        db/migrate/<timestamp>_add_rls_policies_for_posts.rb
+
+    After generation:
+        bin/rails db:migrate
+        bin/rake validator:lint_schema  # should show <n>/<n>/<n> aligned
+
+See also:
+    - docs/architecture/data-version.md (双保险 section)
+    - docs/decisions/ADR-014-rls-policy-generator.md

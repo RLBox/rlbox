@@ -1,6 +1,6 @@
 ---
 topic: adr-index
-updated_at: 2026-05-01
+updated_at: 2026-05-03
 ---
 
 # Architecture Decision Records (ADR) 索引
@@ -22,6 +22,9 @@ updated_at: 2026-05-01
 | [ADR-010](ADR-010-cqrs-verify-cleanup-split.md) | CQRS 读写分离：verify 纯读 + cleanup 独立端点 | ✅ Accepted | 2026-04-30 |
 | [ADR-011](ADR-011-bin-dev-loads-dotenv.md) | bin/dev 加载 .env 实现本地端口隔离（多派生项目并跑） | ✅ Accepted | 2026-05-01 |
 | [ADR-012](ADR-012-app-style-home-spec-adaptation.md) | Native-app 风格首页的 spec 适配策略（dual-nav / 无 floating navbar） | ✅ Accepted | 2026-05-01 |
+| [ADR-014](ADR-014-rls-policy-generator.md) | `rails g rls_policy` — 单表 4-op RLS policy 生成器 | ✅ Accepted | 2026-05-03 |
+| [ADR-015](ADR-015-data-pack-depends-on.md) | Data pack `# depends_on:` 注释声明 + 拓扑排序加载 | ✅ Accepted | 2026-05-03 |
+| [ADR-016](ADR-016-lint-schema-consistency.md) | `validator:lint_schema` — 模型 ↔ 列 ↔ RLS 三路一致性校验 | ✅ Accepted | 2026-05-03 |
 
 ## 新建 ADR 模板
 

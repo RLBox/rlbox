@@ -15,6 +15,9 @@
 | **data_version / 会话隔离 / rollback** | [docs/architecture/data-version.md](docs/architecture/data-version.md) | P0 |
 | **baseline 数据怎么加 / 为什么不用 seeds** | [docs/architecture/data-packs.md](docs/architecture/data-packs.md) | P0 |
 | **新建业务表 / 三件套能不能用** | [docs/decisions/ADR-001-all-business-tables-have-data-version.md](docs/decisions/ADR-001-all-business-tables-have-data-version.md) + [docs/conventions/adding-models.md](docs/conventions/adding-models.md) | P0 |
+| **新表装 RLS policy / 老表 RLS 漏装了** | [docs/decisions/ADR-014-rls-policy-generator.md](docs/decisions/ADR-014-rls-policy-generator.md) + `bin/rails g rls_policy <table>` | P0 |
+| **data pack 加载顺序 / 跨 pack 依赖 / 循环依赖** | [docs/decisions/ADR-015-data-pack-depends-on.md](docs/decisions/ADR-015-data-pack-depends-on.md) | P0 |
+| **schema 对不对齐 / 模型 vs DB 列 vs RLS policy 三路校验** | [docs/decisions/ADR-016-lint-schema-consistency.md](docs/decisions/ADR-016-lint-schema-consistency.md) + `bin/rake validator:lint_schema` | P0 |
 | **某个模型的字段/关联/约束** | [docs/models/](docs/models/)`<model>.md` | P1 |
 | **写 validator 规范** | [docs/conventions/validator-writing.md](docs/conventions/validator-writing.md) | P1 |
 | **验证器系统设计（生命周期/数据隔离）** | [docs/architecture/validator-system.md](docs/architecture/validator-system.md) | P1 |
@@ -36,9 +39,10 @@
 
 1. **修 data_version / 模型定义 / 数据加载流程之前** → 必读 [data-version.md](docs/architecture/data-version.md) + 相关 ADR。
 2. **创建业务表** → 用 `rails g model` / `rails g models`（自动加 `data_version`）。❌ 禁止手写 `rails g migration CreateXxx`。
-3. **加 baseline 数据** → 只走 `app/validators/support/data_packs/v1/`。❌ `db/seeds.rb` 不是入口。
-4. **三件套**（`data_version_excluded!` + `unscope default_scope` + `skip_callback :set_data_version`）**仅限系统表**：Administrator / Session / AdminOplog / ValidatorExecution / ActiveStorage\*。❌ 业务表绝不用。
-5. **会话结束前** → 按本文末 [📝 Session-End Checklist](#-session-end-checklist) 更新 wiki。
+3. **新业务表建好 migration 后** → **必跑** `bin/rails g rls_policy <table>`（ADR-014），否则跨 session 写保护失效。提交前 `bin/rake validator:lint_schema` 必须绿（ADR-016）。
+4. **加 baseline 数据** → 只走 `app/validators/support/data_packs/v1/`。❌ `db/seeds.rb` 不是入口。跨 pack 依赖用文件头 `# depends_on: a, b` 声明（ADR-015），**不要**用字母序 hack 文件名。
+5. **三件套**（`data_version_excluded!` + `unscope default_scope` + `skip_callback :set_data_version`）**仅限系统表**：Administrator / Session / AdminOplog / ValidatorExecution / ActiveStorage\*。❌ 业务表绝不用。
+6. **会话结束前** → 按本文末 [📝 Session-End Checklist](#-session-end-checklist) 更新 wiki。
 
 ### 📛 反例代码（直接贴这里，别去猜）
 
@@ -113,6 +117,7 @@ Rails 默认热加载。**需要重启**的情况：
 | 目标 | 命令 | 备注 |
 |---|---|---|
 | 业务模型（批量） | `rails g models product name:string + category name:string` | 自动加 data_version |
+| **业务表 RLS policy** | `rails g rls_policy TABLE` | **每个新业务表必跑**。生成 4-op policy migration（ADR-014）|
 | 认证系统 | `rails g authentication [--navbar-style=STYLE]` | 事前确保无 User |
 | 假支付 | `rails g stripe_pay [--auth]` | 生成 Payment（不是 Order）；用 polymorphic `:payable` |
 | LLM | `rails g llm` | 配 `LLM_BASE_URL/KEY/MODEL`；优先 `LlmStreamJob` 流式 |

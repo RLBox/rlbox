@@ -206,12 +206,15 @@ namespace :validator do
     # Set PostgreSQL session variable so DataVersionable writes data_version='0'
     ActiveRecord::Base.connection.execute("SET SESSION app.data_version = '0'")
 
-    # Load base.rb first, then alphabetical.
-    # Search within results so the file can live at any depth under data_packs/.
-    base_file = pack_files.find { |f| File.basename(f) == 'base.rb' }
-    if base_file
-      pack_files.delete(base_file)
-      pack_files.unshift(base_file)
+    # Topological sort by `# depends_on:` header (with alphabetic tiebreak).
+    # Files without the header fall through to the legacy rule: `base.rb` first,
+    # then alphabetical.
+    require Rails.root.join('lib/data_pack_loader')
+    begin
+      pack_files = DataPackLoader.new(data_packs_dir).load_order
+    rescue DataPackLoader::Error => e
+      puts "  ✗ Data pack load order error: #{e.message}"
+      exit 1
     end
 
     pack_files.each do |file|
@@ -387,5 +390,107 @@ namespace :validator do
     end
 
     puts "✅ Loaded #{loaded} validator status(es) from JSON (#{skipped} already existed, skipped)"
+  end
+
+  # ---------------------------------------------------------------------------
+  # validator:lint_schema
+  # 三者一致性校验：
+  #   A) 通过 include DataVersionable 注册的 Ruby 模型
+  #   B) 实际有 data_version 列的 DB 表
+  #   C) 启用 RLS 且有 4 条 policy（select/insert/update/delete）的 DB 表
+  #
+  # 不一致的典型后果：
+  #   A⊄B：模型 include 了 concern，但表没列 → boot 时会炸
+  #   B⊄A：表有列但模型没 include → default_scope 失效，SELECT 会跨 session 泄数据
+  #   B⊄C：表有列但 RLS 没装，policy 数量 ≠ 4 → 写保护失效，baseline 裸奔
+  #
+  # 注意：rlbox 底座本身默认 **不** 启用 RLS（各派生项目自己加 RLS migration）。
+  # 如果当前项目没有任何 RLS policy，RLS 检查会转成 WARNING（不阻塞 CI），
+  # 一旦项目加了任意一条 policy（表明它走 RLS 路线），缺少的 policy 会升级为 ERROR。
+  # ---------------------------------------------------------------------------
+  desc 'Lint DataVersionable models ↔ data_version columns ↔ RLS policies'
+  task lint_schema: :environment do
+    load_all_models
+
+    puts "\n=== Schema Lint ===\n\n"
+
+    conn = ActiveRecord::Base.connection
+
+    # A) 通过 concern 注册的模型（排除 data_version_excluded! 的系统模型）
+    registered_models = DataVersionable.models - DataVersionable.excluded_models
+    registered_tables = registered_models.map(&:table_name).sort
+
+    # B) 实际有 data_version 列的业务表
+    db_tables_with_column = conn.tables.select do |t|
+      conn.column_exists?(t, :data_version)
+    end.sort
+
+    # C) 启用 RLS 且有 4 条 policy 的表
+    policy_rows = conn.execute(<<~SQL).to_a
+      SELECT tablename, COUNT(*)::int AS policy_count
+      FROM pg_policies
+      WHERE schemaname = 'public'
+      GROUP BY tablename
+    SQL
+    policies_by_table = policy_rows.each_with_object({}) do |row, hash|
+      hash[row['tablename']] = row['policy_count']
+    end
+    tables_with_full_policies = policies_by_table.select { |_, c| c >= 4 }.keys.sort
+
+    # 项目是否启用 RLS 路线（有任一张业务表有 policy）
+    rls_project = policies_by_table.any?
+
+    errors = []
+    warnings = []
+
+    # 1. 模型注册了 concern 但表里没 data_version 列
+    missing_column = registered_tables - db_tables_with_column
+    missing_column.each do |t|
+      errors << "Model for table '#{t}' includes DataVersionable but table has no `data_version` column"
+    end
+
+    # 2. 表有 data_version 列但模型没 include concern
+    not_registered = db_tables_with_column - registered_tables
+    not_registered.each do |t|
+      errors << "Table '#{t}' has `data_version` column but no model includes DataVersionable for it " \
+                '(SELECT will leak across sessions, writes will bypass set_data_version callback)'
+    end
+
+    # 3. 表有 data_version 列但 RLS policy 数量 < 4
+    missing_policies = db_tables_with_column - tables_with_full_policies
+    missing_policies.each do |t|
+      count = policies_by_table[t] || 0
+      msg = "Table '#{t}' has `data_version` column but only #{count} RLS policy(ies), expected 4 " \
+            '(select/insert/update/delete).'
+      if rls_project
+        errors << "#{msg} Run `rails g rls_policy #{t}` to backfill."
+      else
+        warnings << "#{msg} (Project does not use RLS — ok if you rely on application-level default_scope only.)"
+      end
+    end
+
+    # 4. 有 RLS policy 但表没 data_version 列（多余的 policy）
+    extra_policies = tables_with_full_policies - db_tables_with_column
+    extra_policies.each do |t|
+      warnings << "Table '#{t}' has RLS policies but no `data_version` column (orphan policy?)"
+    end
+
+    # 输出
+    puts "  Registered models  : #{registered_tables.size}"
+    puts "  Tables w/ column   : #{db_tables_with_column.size}"
+    puts "  Tables w/ 4 polices: #{tables_with_full_policies.size}"
+    puts "  RLS enabled?       : #{rls_project ? 'yes' : 'no (application-layer only)'}"
+    puts ''
+
+    if errors.empty? && warnings.empty?
+      puts "  ✅ All aligned.\n\n"
+      next
+    end
+
+    errors.each   { |e| puts "  ✗ ERROR:   #{e}" }
+    warnings.each { |w| puts "  ⚠ WARNING: #{w}" }
+    puts ''
+
+    exit 1 if errors.any?
   end
 end

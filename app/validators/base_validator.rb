@@ -531,16 +531,14 @@ class Validators::BaseValidator
       raise "Data packs directory not found: #{data_packs_dir}"
     end
     
-    # 获取所有 .rb 文件并按文件名排序
-    data_pack_files = Dir.glob(data_packs_dir.join('*.rb')).sort
-    
-    # 确保 base.rb 优先加载（如果存在）
-    base_file = data_packs_dir.join('base.rb')
-    if File.exist?(base_file)
-      data_pack_files.delete(base_file.to_s)
-      data_pack_files.unshift(base_file.to_s)
-    end
-    
+    # 数据包加载顺序：
+    #   - 默认按文件名字母序
+    #   - base.rb 保证最先加载（即使它没显式声明依赖）
+    #   - 文件顶部可写 `# depends_on: a, b` 注释来声明依赖（拓扑排序）
+    # 详见 lib/data_pack_loader.rb
+    require Rails.root.join('lib/data_pack_loader')
+    data_pack_files = DataPackLoader.new(data_packs_dir).load_order
+
     # 加载所有数据包
     data_pack_files.each do |file|
       filename = File.basename(file)
