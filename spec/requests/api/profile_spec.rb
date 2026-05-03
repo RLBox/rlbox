@@ -33,8 +33,10 @@ RSpec.describe 'Api::ProfileController', type: :request do
     end
 
     context 'demo user 未 seed' do
+      # 不直接 delete user（FK 约束会阻拦，rlbox 当前没 FK 但下游品牌有）。
+      # 改用 stub_const 把 EMAIL 改成一个不存在的值，等价于 "demo 未 seed"。
       before do
-        User.unscoped.where(email: DataPacks::V1::DemoUser::EMAIL, data_version: '0').delete_all
+        stub_const('DataPacks::V1::DemoUser::EMAIL', 'ghost-that-does-not-exist@rlbox.ai')
       end
 
       it '返回 404 with descriptive error' do
