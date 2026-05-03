@@ -2,9 +2,9 @@ development:
   adapter:  postgresql
   host:     localhost
   encoding: unicode
-  database: myapp_development
+  database: <%= ENV.fetch('WORKTREE_DEV_DB',  'rlbox_development') %>
   pool:     15
-  username: postgres
+  username: app_user
   password: postgres
   template: template0
 
@@ -12,9 +12,9 @@ test:
   adapter:  postgresql
   host:     localhost
   encoding: unicode
-  database: myapp_test
+  database: <%= ENV.fetch('WORKTREE_TEST_DB', 'rlbox_test') %>
   pool:     15
-  username: postgres
+  username: app_user
   password: postgres
   template: template0
 
