@@ -32,6 +32,7 @@
 | **多会话并发 / 多 tab 训练** | [docs/architecture/multi-session.md](docs/architecture/multi-session.md) | P2 |
 | **新分支初始化/部署** | [docs/conventions/new-branch.md](docs/conventions/new-branch.md) | P2 |
 | **环境变量 / 平台约定** | [docs/conventions/environment.md](docs/conventions/environment.md) | P2 |
+| **数据库命名 / bin/db_init / `<slug>_development`** | [docs/decisions/ADR-017-database-naming-and-db-init.md](docs/decisions/ADR-017-database-naming-and-db-init.md) | P1 |
 | **为什么当初这样决定** | [docs/decisions/](docs/decisions/) (ADR) | 按需 |
 | **历史修复记录**（只读，勿模仿） | [docs/archive/](docs/archive/) | 仅排查 |
 
