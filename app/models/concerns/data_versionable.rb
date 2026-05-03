@@ -97,6 +97,37 @@ module DataVersionable
     Rails.logger.warn "[DataVersionable] Failed to get current_setting: #{e.message}"
     ['0']
   end
+
+  # 作用域内放开 baseline 写保护。
+  # 同时 SET SESSION app.baseline_loading='on'（绕过 DB 层 RLS）+ 设
+  # Thread.current 开关（未来可供 Ruby 层 before_update/destroy 回调兜底）。
+  # 仅供 data pack 加载流程使用（lib/tasks/validator.rake 的 reset_baseline）。
+  #
+  # 用法：
+  #   DataVersionable.allow_baseline_mutation do
+  #     ActiveRecord::Base.connection.execute("SET SESSION app.data_version = '0'")
+  #     load 'app/validators/support/data_packs/v1/base.rb'
+  #   end
+  def self.allow_baseline_mutation
+    prev_thread = Thread.current[:allow_baseline_mutation]
+    Thread.current[:allow_baseline_mutation] = true
+
+    conn = ActiveRecord::Base.connection
+    conn.execute("SET SESSION app.baseline_loading = 'on'")
+    yield
+  ensure
+    Thread.current[:allow_baseline_mutation] = prev_thread
+    begin
+      ActiveRecord::Base.connection.execute("SET SESSION app.baseline_loading = 'off'")
+    rescue StandardError => e
+      Rails.logger.warn "[DataVersionable] Failed to reset baseline_loading: #{e.message}"
+    end
+  end
+
+  # 仅供测试 / 诊断：查询当前作用域是否允许写 baseline。
+  def self.baseline_mutation_allowed?
+    Thread.current[:allow_baseline_mutation] == true
+  end
   
   private
   

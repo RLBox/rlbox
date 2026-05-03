@@ -203,9 +203,6 @@ namespace :validator do
 
     puts "  Step 2: Loading #{pack_files.size} data pack(s)..."
 
-    # Set PostgreSQL session variable so DataVersionable writes data_version='0'
-    ActiveRecord::Base.connection.execute("SET SESSION app.data_version = '0'")
-
     # Topological sort by `# depends_on:` header (with alphabetic tiebreak).
     # Files without the header fall through to the legacy rule: `base.rb` first,
     # then alphabetical.
@@ -217,14 +214,23 @@ namespace :validator do
       exit 1
     end
 
-    pack_files.each do |file|
-      filename = Pathname.new(file).relative_path_from(Rails.root).to_s
-      begin
-        load file
-        puts "  ✓ #{filename}"
-      rescue StandardError => e
-        puts "  ✗ #{filename}: #{e.message}"
-        puts "    #{e.backtrace.first(3).join("\n    ")}"
+    # 把 baseline 加载整个包在 allow_baseline_mutation 作用域里：
+    #   - SET SESSION app.baseline_loading = 'on' → 绕过 4-op RLS policy 的 INSERT/UPDATE/DELETE 写保护
+    #   - Thread.current[:allow_baseline_mutation] = true → 未来可供 Ruby 层回调兜底
+    # 作用域结束自动关闭两个开关（即使 yield 抛异常也关）。
+    DataVersionable.allow_baseline_mutation do
+      # data pack 应该写入 data_version='0'
+      ActiveRecord::Base.connection.execute("SET SESSION app.data_version = '0'")
+
+      pack_files.each do |file|
+        filename = Pathname.new(file).relative_path_from(Rails.root).to_s
+        begin
+          load file
+          puts "  ✓ #{filename}"
+        rescue StandardError => e
+          puts "  ✗ #{filename}: #{e.message}"
+          puts "    #{e.backtrace.first(3).join("\n    ")}"
+        end
       end
     end
 
