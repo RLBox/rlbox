@@ -1,76 +1,172 @@
 #!/usr/bin/env ruby
-require 'fileutils'
+# frozen_string_literal: true
+#
+# bin/db_init — 数据库一键初始化（从零搭建 / 重建）
+#
+# 适用场景：
+#   - 新克隆项目，第一次搭建本地环境
+#   - 换一台开发机
+#   - 想把数据库推倒重建（删库后从头来）
+#
+# 执行步骤：
+#   1. 读 database.yml 拿到 dev / test 数据库名 / 用户名 / 密码
+#   2. 以 superuser 身份连 postgres 库，创建 app_user（NOSUPERUSER，RLS 必需）
+#   3. 以 superuser 创建 dev / test 数据库，并把 owner 设为 app_user
+#      → 这样 app_user 建的表天然归自己所有，后续 migration 可以 ALTER TABLE
+#   4. 授予 app_user 必要权限 + 注册 app.data_version GUC 参数（RLS 依赖）
+#   5. 运行 db:migrate（会启用 RLS policy）
+#   6. 加载 baseline 数据包（rake validator:reset_baseline）
+#   7. 自检：确认 app_user 非 superuser + RLS policy 数量 ≥ 4
+#
+# 前置条件：
+#   - PostgreSQL 运行中
+#   - 能以 superuser（默认 `postgres`）连接本机 PG
+#     覆盖方法: PGSUPERUSER=your_super bin/db_init
+#
+# 幂等：
+#   - 重复执行不破坏现有数据
+#   - 如需"彻底重建": DROP=1 bin/db_init（会先 dropdb 再重来，⚠️ 数据清空）
 
-# path to your application root.
+require 'fileutils'
+require 'yaml'
+require 'erb'
+
 APP_ROOT = File.expand_path('..', __dir__)
 
 def system!(*args)
-  system(*args) || abort("\n== Command #{args} failed ==")
+  system(*args) || abort("\n❌ Command #{args.inspect} failed")
 end
 
-FileUtils.chdir APP_ROOT do
-  puts "\n=========================================="
-  puts "🚀 数据库初始化开始..."
-  puts "==========================================\n"
-
-  # Step 1: 创建 app_user 角色
-  puts "📊 [1/3] 创建数据库角色 app_user..."
-  
-  require_relative '../config/environment'
-  
-  begin
-    ActiveRecord::Base.connection.execute(<<~SQL)
-      DO $$
-      BEGIN
-         IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN
-            CREATE ROLE app_user WITH LOGIN NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
-            RAISE NOTICE 'Created app_user role';
-         ELSE
-            RAISE NOTICE 'app_user role already exists';
-         END IF;
-      END $$;
-    SQL
-    
-    # 设置密码（从环境变量读取，或使用默认值）
-    db_password = ENV['DB_PASSWORD'] || ENV.fetch('DATABASE_URL', '').match(/postgres:\/\/[^:]+:([^@]+)@/)&.[](1) || 'password'
-    
-    ActiveRecord::Base.connection.execute("ALTER ROLE app_user WITH PASSWORD '#{db_password}';")
-    
-    # 获取当前数据库名
-    db_name = ActiveRecord::Base.connection.current_database
-    
-    # 授予基本权限
-    ActiveRecord::Base.connection.execute("GRANT CONNECT ON DATABASE #{db_name} TO app_user;")
-    ActiveRecord::Base.connection.execute("GRANT USAGE, CREATE ON SCHEMA public TO app_user;")
-    ActiveRecord::Base.connection.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;")
-    ActiveRecord::Base.connection.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;")
-    
-    # 默认权限（未来创建的表自动授权）
-    ActiveRecord::Base.connection.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;")
-    ActiveRecord::Base.connection.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;")
-    
-    # 设置默认搜索路径
-    ActiveRecord::Base.connection.execute("ALTER ROLE app_user SET search_path TO public;")
-    
-    puts "✓ app_user 角色已就绪"
-  rescue => e
-    puts "⚠️  创建 app_user 时出错: #{e.message}"
-    puts "继续执行后续步骤..."
+def psql(db, sql, superuser:)
+  IO.popen(%W[psql -h #{ENV.fetch('PGHOST', 'localhost')} -U #{superuser} -d #{db} -v ON_ERROR_STOP=1 -q], 'w') do |p|
+    p.write(sql)
   end
-  
-  # Step 2: 运行数据库迁移
-  puts "\n📊 [2/3] 运行数据库迁移..."
+  $?.success? || abort("❌ psql 失败: db=#{db}")
+end
+
+def appname
+  path = File.join(APP_ROOT, 'config', 'appname.txt')
+  File.exist?(path) ? File.read(path).strip : 'Rails App'
+end
+
+FileUtils.chdir(APP_ROOT) do
+  puts
+  puts '=' * 60
+  puts "🚀 #{appname} 数据库初始化"
+  puts '=' * 60
+
+  # === Step 0: 解析 database.yml，拿到实际的库名 / 用户名 / 密码 ===
+  db_config = YAML.safe_load(ERB.new(File.read('config/database.yml')).result, aliases: true)
+  dev_db  = ENV['WORKTREE_DEV_DB']  || db_config.dig('development', 'database') or abort('❌ database.yml 缺 development.database')
+  test_db = ENV['WORKTREE_TEST_DB'] || db_config.dig('test', 'database')         or abort('❌ database.yml 缺 test.database')
+  app_user = db_config.dig('development', 'username')  or abort('❌ database.yml 缺 development.username')
+  app_pass = db_config.dig('development', 'password') || ENV['DB_PASSWORD'] || 'postgres'
+
+  superuser = ENV.fetch('PGSUPERUSER', 'postgres')
+  drop_first = ENV['DROP'] == '1'
+
+  puts
+  puts "  超级用户:    #{superuser}"
+  puts "  app 用户:    #{app_user}"
+  puts "  开发库:      #{dev_db}"
+  puts "  测试库:      #{test_db}"
+  puts "  模式:        #{drop_first ? '💣 DROP 后重建' : '幂等增量'}"
+  puts
+
+  # === Step 1: 创建 app_user 角色（幂等） ===
+  puts '📊 [1/5] 创建 / 校准 app_user 角色...'
+  psql('postgres', <<~SQL, superuser: superuser)
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '#{app_user}') THEN
+        -- NOSUPERUSER 是 RLS 生效的关键（superuser 会 bypass RLS）
+        -- CREATEDB 是给 db:test:prepare 用的（DROP+CREATE test 库）
+        CREATE ROLE #{app_user} WITH LOGIN NOSUPERUSER CREATEDB INHERIT NOCREATEROLE NOREPLICATION PASSWORD '#{app_pass}';
+        RAISE NOTICE 'Created role %', '#{app_user}';
+      END IF;
+    END $$;
+    ALTER ROLE #{app_user} WITH PASSWORD '#{app_pass}' CREATEDB;
+  SQL
+  puts "  ✓ #{app_user} 就绪（NOSUPERUSER + CREATEDB，RLS 对其生效）"
+
+  # === Step 2: 创建数据库（owner = app_user） ===
+  puts "\n📊 [2/5] 创建数据库..."
+  [dev_db, test_db].each do |db|
+    if drop_first
+      system("dropdb -h #{ENV.fetch('PGHOST', 'localhost')} -U #{superuser} --if-exists #{db}")
+    end
+
+    # 用 createdb 比 CREATE DATABASE 更直接；已存在会报错但不致命
+    exists = system("psql -h #{ENV.fetch('PGHOST', 'localhost')} -U #{superuser} -d postgres -tAc \"SELECT 1 FROM pg_database WHERE datname='#{db}'\" | grep -q 1")
+    if exists
+      puts "  ⊙ #{db} 已存在，跳过创建"
+    else
+      system! "createdb -h #{ENV.fetch('PGHOST', 'localhost')} -U #{superuser} -O #{app_user} -T template0 -E UTF8 #{db}"
+      puts "  ✓ 创建 #{db}（owner=#{app_user}）"
+    end
+
+    # 授权 + 把 owner 改成 app_user（即使库已存在也要保证 owner 正确，
+    # 否则 db:test:prepare 等 rake 任务会因 InsufficientPrivilege 失败）
+    psql('postgres', <<~SQL, superuser: superuser)
+      ALTER DATABASE #{db} OWNER TO #{app_user};
+      -- 注册自定义 GUC 参数 app.data_version，RLS policy 依赖它
+      -- 这一步必须 superuser（PG 对自定义参数的硬性限制，owner 权限不够）
+      ALTER DATABASE #{db} SET app.data_version = '0';
+    SQL
+    psql(db, <<~SQL, superuser: superuser)
+      GRANT ALL PRIVILEGES ON DATABASE #{db} TO #{app_user};
+      ALTER SCHEMA public OWNER TO #{app_user};
+      GRANT USAGE, CREATE ON SCHEMA public TO #{app_user};
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO #{app_user};
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO #{app_user};
+    SQL
+  end
+
+  # === Step 3: 运行迁移（会自动 ENABLE + FORCE RLS） ===
+  puts "\n📊 [3/5] 运行 db:migrate..."
   system! 'bin/rails db:migrate'
-  
-  # Step 3: 加载基线数据（FULL=1 确保清掉所有历史遗留数据，包括旧的 data_version='0' 用户）
-  puts "\n📊 [3/3] 加载基线验证数据..."
-  system!({ 'FULL' => '1' }, 'bin/rails validator:reset_baseline')
-  
-  puts "\n=========================================="
-  puts "✅ 数据库初始化完成！"
-  puts "==========================================\n"
-  puts "📝 后续操作："
-  puts "   启动服务: bin/dev"
-  puts "   运行测试: bundle exec rspec"
-  puts ""
+  # test 库也同步 schema
+  system! 'bin/rails db:test:prepare'
+
+  # === Step 4: 加载 baseline 数据 ===
+  puts "\n📊 [4/5] 加载 baseline 数据..."
+  system! 'bin/rails validator:reset_baseline'
+
+  # === Step 5: 自检 ===
+  puts "\n📊 [5/5] 自检 RLS 是否真正生效..."
+  check_script = <<~'RUBY'
+    conn = ActiveRecord::Base.connection
+    user = conn.execute("SELECT current_user").first["current_user"]
+    is_super = conn.execute("SELECT usesuper FROM pg_user WHERE usename = current_user").first["usesuper"]
+    policies = conn.execute("SELECT COUNT(*)::int AS c FROM pg_policies WHERE schemaname = 'public'").first["c"]
+    biz_tables = conn.execute(<<~SQL).first["c"]
+      SELECT COUNT(*)::int AS c FROM information_schema.columns
+      WHERE table_schema = 'public' AND column_name = 'data_version'
+    SQL
+    puts "  连接用户:        #{user}"
+    puts "  是否 superuser:  #{is_super}"
+    puts "  data_version 表: #{biz_tables}"
+    puts "  RLS policy 数量: #{policies}"
+    abort "❌ 仍是 superuser，RLS 会被绕过！检查 config/database.yml" if is_super
+    if biz_tables.positive? && policies.zero?
+      warn "  ⚠ 业务表已存在但 RLS policy = 0。运行 `rails g rls_policy <table>` 为每张业务表生成 4-op policy（依赖 ADR-014）。"
+    elsif biz_tables.positive? && policies < biz_tables * 4
+      warn "  ⚠ RLS policy 数量偏少：#{policies} < #{biz_tables * 4}（业务表 #{biz_tables} 张 × 4-op）。部分业务表可能缺 policy。"
+    else
+      puts "  ✓ RLS 配置就绪"
+    end
+  RUBY
+  IO.popen(['bin/rails', 'runner', '-'], 'w') { |io| io.write(check_script) }
+  abort('❌ 自检失败') unless $?.success?
+
+  puts
+  puts '=' * 60
+  puts '✅ 初始化完成'
+  puts '=' * 60
+  puts
+  puts '后续命令：'
+  puts '  启动应用: bin/dev'
+  puts '  运行测试: bundle exec rake test 或 bundle exec rspec'
+  puts '  重新加载 baseline: bin/rails validator:reset_baseline'
+  puts
 end
