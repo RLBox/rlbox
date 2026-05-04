@@ -1,6 +1,6 @@
 ---
 topic: environment
-updated_at: 2026-05-01
+updated_at: 2026-05-04
 status: current
 related:
   - new-branch.md
@@ -72,6 +72,8 @@ cp .env.example .env
 | duvy | 11605 |
 
 `bin/dev` 启动时会**先**解析 `.env`（纯 Ruby 12 行，无 dotenv gem 依赖），再走 `EnvChecker`。详见 [ADR-011](../decisions/ADR-011-bin-dev-loads-dotenv.md)。
+
+**`bin/db_init` 同样会读 `.env`**（2026-05-04 扩展）：worktree 场景下 `.env` 可以写 `WORKTREE_DEV_DB=xxx` / `WORKTREE_TEST_DB=xxx`，`bin/db_init` 会读到并初始化到正确的库，与 `bin/dev` 启动的 puma 看到同一个 DB。以前 `bin/db_init` 不读 `.env`，裸跑会 fallback 到默认库名（`<app>_development`），导致 baseline 被灌到错误的库，puma 报 `NoDatabaseError`。
 
 ## Generator Auto-Configuration
 

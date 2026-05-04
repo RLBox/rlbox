@@ -1,6 +1,6 @@
 ---
 topic: adr-011
-updated_at: 2026-05-01
+updated_at: 2026-05-04
 status: accepted
 decision_date: 2026-05-01
 related:
@@ -77,13 +77,27 @@ end
 - 新派生项目从模板 fork 即天生支持
 
 ### Negative
-- 12 行代码在 6 个项目各存一份（rlbox + 5 个派生）。未来若要扩展 .env 解析能力（多行值、变量展开、引号处理），需要同步 6 份
+- 12 行代码在 6 个项目 × 每项目 2 个脚本（`bin/dev` + `bin/db_init`）各存一份。未来若要扩展 .env 解析能力（多行值、变量展开、引号处理），需要同步 ~12 份
 - 不支持 `.env.production` / `.env.test` 这种分环境文件（当前需求不需要，production 走 figaro/ENV）
 
 ### Migration / Rollout (2026-05-01)
 - ✅ 同步 `bin/dev` 至 Goomart / planet / duvy / rlbox（IdleSwap / Kangoo 已是新版）
 - ✅ 实测：Goomart@11601 / planet@11604 / duvy@11605 三连 HTTP 200
 - ✅ rlbox 新增 `.env.example` 保存端口分配表
+
+### Extension: bin/db_init also loads .env (2026-05-04)
+
+**触发事故**：duvy 上用 `box-worktree-rails-setup` skill 开 worktree 后，`.env` 里写了 `WORKTREE_DEV_DB=duvy_db_checkin`。`bin/dev` 正确读入并让 puma 连这个库；但独立跑 `bin/db_init` 时脚本**不读 .env**，fallback 到 `duvy_development`，把 baseline 灌进了错误的库。puma 报 `NoDatabaseError: duvy_db_checkin`，首页 500。
+
+**修复**：把 `bin/dev` 的 14 行 `.env` parser 同款复制到 `bin/db_init` 开头（`APP_ROOT` 定义之后、`system!` 定义之前）。让两个脚本看到同一套 ENV。
+
+**影响范围**：任何读 `ENV['WORKTREE_DEV_DB']` / `ENV['WORKTREE_TEST_DB']` 的独立 ruby 脚本都有这个风险。目前 `bin/db_init` 是唯一一个，已全部修复。
+
+**同步 Rollout**：
+- ✅ rlbox 模板
+- ✅ Goomart / IdleSwap / Kangoo / planet / duvy 五个 fork
+
+**与原决策的关系**：不是撤销 ADR-011，是对其"只影响 `bin/dev` 启动"的边界做局部扩展。原则不变：零 gem、纯 Ruby、12~14 行可读的 parser，每个需要读 `.env` 的脚本自带。如果未来第 3 个脚本也需要，就该认真考虑 Future Options 里的 dotenv-rails 方案了。
 
 ## Future Options (暂不做)
 
