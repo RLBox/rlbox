@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_04_28_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_05_03_120002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -67,22 +67,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_28_000001) do
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_administrators_on_name", unique: true
     t.index ["role"], name: "index_administrators_on_role"
-  end
-
-  create_table "agent_tasks", force: :cascade do |t|
-    t.string "agent_session_id", null: false
-    t.string "issue_id", null: false
-    t.string "workspace_id", null: false
-    t.string "install_token", null: false
-    t.string "status", default: "pending", null: false
-    t.text "webhook_payload"
-    t.text "error_message"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["agent_session_id"], name: "index_agent_tasks_on_agent_session_id", unique: true
-    t.index ["install_token"], name: "index_agent_tasks_on_install_token"
-    t.index ["status"], name: "index_agent_tasks_on_status"
-    t.index ["workspace_id"], name: "index_agent_tasks_on_workspace_id"
   end
 
   create_table "friendly_id_slugs", force: :cascade do |t|
@@ -186,19 +170,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_28_000001) do
     t.index ["scheduled_at"], name: "index_good_jobs_on_scheduled_at", where: "(finished_at IS NULL)"
   end
 
-  create_table "linear_installations", force: :cascade do |t|
-    t.string "install_token", null: false
-    t.string "workspace_id", null: false
-    t.string "linear_actor_id"
-    t.text "access_token", null: false
-    t.text "refresh_token"
-    t.datetime "expires_at"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["install_token"], name: "index_linear_installations_on_install_token", unique: true
-    t.index ["workspace_id"], name: "index_linear_installations_on_workspace_id"
-  end
-
   create_table "posts", force: :cascade do |t|
     t.string "title", null: false
     t.text "body"
@@ -211,27 +182,12 @@ ActiveRecord::Schema[7.2].define(version: 2026_04_28_000001) do
     t.index ["user_id"], name: "index_posts_on_user_id"
   end
 
-  create_table "project_mappings", force: :cascade do |t|
-    t.string "install_token", null: false
-    t.string "linear_project_id"
-    t.string "linear_team_id", null: false
-    t.string "local_path", null: false
-    t.string "name"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["install_token", "linear_project_id"], name: "index_project_mappings_project_level", unique: true, where: "(linear_project_id IS NOT NULL)"
-    t.index ["install_token", "linear_team_id"], name: "index_project_mappings_team_level", unique: true, where: "(linear_project_id IS NULL)"
-    t.index ["install_token"], name: "index_project_mappings_on_install_token"
-  end
-
   create_table "sessions", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "user_agent"
     t.string "ip_address"
-    t.string "data_version", limit: 50, default: "0", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["data_version"], name: "index_sessions_on_data_version"
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 

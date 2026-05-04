@@ -59,6 +59,9 @@ Rails.application.routes.draw do
     post 'sessions/:session_id/cleanup', to: 'tasks#cleanup_session'
     delete 'sessions/:session_id', to: 'tasks#remove_session'
     delete 'sessions', to: 'tasks#clear_all_sessions'
+
+    # 🆕 Agent profile API (ADR-013 Track B) — agent 查 demo user 账号信息
+    get 'profile', to: 'profile#show'
     
     namespace :v1 do
       # API authentication routes

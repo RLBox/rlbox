@@ -24,9 +24,11 @@
 #   state_data = execution.state_data
 class ValidatorExecution < ApplicationRecord
   # ValidatorExecution 是系统模型，不使用 data_version 机制
+  # 富版 `data_version_excluded!` 已在宏内部完成 register_excluded + unregister_model + skip_callback，
+  # 但 `default_scope unscope(where: :data_version)` **仍需手动写**——
+  # ApplicationRecord default_scope 会被 has_many 继承，导致 build 时给无 data_version 列的表赋值崩溃。
   data_version_excluded!
   default_scope { unscope(where: :data_version) }
-  skip_callback :create, :before, :set_data_version
 
   # 验证
   validates :execution_id, presence: true, uniqueness: true

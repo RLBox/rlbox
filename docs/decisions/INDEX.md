@@ -25,6 +25,7 @@ updated_at: 2026-05-03
 | [ADR-014](ADR-014-rls-policy-generator.md) | `rails g rls_policy` — 单表 4-op RLS policy 生成器 | ✅ Accepted | 2026-05-03 |
 | [ADR-015](ADR-015-data-pack-depends-on.md) | Data pack `# depends_on:` 注释声明 + 拓扑排序加载 | ✅ Accepted | 2026-05-03 |
 | [ADR-016](ADR-016-lint-schema-consistency.md) | `validator:lint_schema` — 模型 ↔ 列 ↔ RLS 三路一致性校验 | ✅ Accepted | 2026-05-03 |
+| [ADR-017](ADR-017-database-naming-and-db-init.md) | 数据库命名（`<slug>_development` / `app_user`）+ `bin/db_init` 统一 | ✅ Accepted | 2026-05-03 |
 
 ## 新建 ADR 模板
 

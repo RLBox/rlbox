@@ -211,7 +211,7 @@ class Validators::BaseValidator
   attr_reader :execution_id, :errors, :score, :assertions
   
   class << self
-    attr_accessor :validator_id, :task_id, :title, :description, :timeout_seconds
+    attr_accessor :validator_id, :task_id, :title, :timeout_seconds
 
     # DSL: declare UI requirements for this validator.
     # Usage:
@@ -243,7 +243,6 @@ class Validators::BaseValidator
         validator_id: validator_id,    # 保留旧字段用于兼容
         task_id: task_id,              # 新字段（UUID）
         title: title,
-        description: description,
         timeout: timeout_seconds,
         is_multi_turn: false           # 默认不支持多轮对话
       }
@@ -298,28 +297,17 @@ class Validators::BaseValidator
 
     # 执行自定义准备逻辑（通常不需要加载数据，直接使用基线数据即可）
     @prepare_result = prepare
-    
-    # 构造统一的返回格式
-    # 1. 添加日期上下文到 title
-    # 2. 将 prepare 返回的数据作为额外参数
-    # 3. 添加 description（来自类变量）
+
+    # 构造统一的返回格式：只从 class 字段取 title（加日期上下文）
+    # prepare 的返回值历史上被框架丢弃（task/hint 字段跳过、其他字段未被消费者读取），
+    # 此处不再合并 @prepare_result — 见 ADR-013。
     result = {
-      title: add_date_context(self.class.title),
-      description: self.class.description
+      title: add_date_context(self.class.title)
     }
-    
-    # 如果 prepare 返回了 Hash，合并所有字段（排除 task 和 hint）
-    if @prepare_result.is_a?(Hash)
-      @prepare_result.each do |key, value|
-        # 跳过 task 和 hint 字段（已经统一到 title 和 description）
-        next if [:task, :hint].include?(key)
-        result[key] = value
-      end
-    end
-    
+
     # 保存执行状态（用于验证阶段恢复）
     save_execution_state
-    
+
     result
   end
   
