@@ -23,9 +23,13 @@
 #   - 能以 superuser（默认 `postgres`）连接本机 PG
 #     覆盖方法: PGSUPERUSER=your_super bin/db_init
 #
-# 幂等：
-#   - 重复执行不破坏现有数据
-#   - 如需"彻底重建": DROP=1 bin/db_init（会先 dropdb 再重来，⚠️ 数据清空）
+# 默认行为（2026-05-04 起）：
+#   - 💣 DROP 后重建（开发库数据一律清空，baseline 由 data pack 重建）
+#   - 理由：开发库本来就是一次性的；"增量幂等"模式容易踩 migration 撞号 / 残留旧表等坑
+#
+# 变更历史：
+#   - 老版本默认"幂等增量"，DROP=1 显式触发重建
+#   - 现在默认 DROP；如需保留数据: KEEP=1 bin/db_init（走老的增量路径）
 
 require 'fileutils'
 require 'yaml'
@@ -77,7 +81,8 @@ FileUtils.chdir(APP_ROOT) do
   app_pass = db_config.dig('development', 'password') || ENV['DB_PASSWORD'] || 'postgres'
 
   superuser = ENV.fetch('PGSUPERUSER', 'postgres')
-  drop_first = ENV['DROP'] == '1'
+  # 默认 DROP；KEEP=1 保留数据走老的增量路径；DROP=1 向后兼容（等价默认）
+  drop_first = ENV['KEEP'] != '1'
 
   puts
   puts "  超级用户:    #{superuser}"
