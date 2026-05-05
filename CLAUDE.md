@@ -29,6 +29,7 @@
 | **前端（Stimulus/Turbo/Icons/ActionCable）** | [docs/conventions/frontend.md](docs/conventions/frontend.md) | P1 |
 | **测试 / rake test / rspec / lint** | [docs/conventions/testing.md](docs/conventions/testing.md) | P1 |
 | **首页是 native-app 风格（双 nav / 无 floating navbar） → spec 怎么适配** | [docs/decisions/ADR-012-app-style-home-spec-adaptation.md](docs/decisions/ADR-012-app-style-home-spec-adaptation.md) | P1 |
+| **Counter 字段（`*_count`）+ RLS silent fail / 为什么不能用 counter_cache / 快照表范式** | [docs/conventions/counter-column.md](docs/conventions/counter-column.md) + [docs/decisions/ADR-018-counter-column-and-rls.md](docs/decisions/ADR-018-counter-column-and-rls.md) | P0 |
 | **多会话并发 / 多 tab 训练** | [docs/architecture/multi-session.md](docs/architecture/multi-session.md) | P2 |
 | **新分支初始化/部署** | [docs/conventions/new-branch.md](docs/conventions/new-branch.md) | P2 |
 | **环境变量 / 平台约定** | [docs/conventions/environment.md](docs/conventions/environment.md) | P2 |
@@ -74,6 +75,32 @@ end
 Product.find_or_create_by!(name: '苹果') { |p| p.price = 12 }
 # ✅ 正确：insert_all（base.rb 已清理干净，直接插）
 Product.insert_all([{ name: '苹果', price: 12, data_version: '0', ... }])
+```
+
+```ruby
+# ❌ 反例 4：业务表用 counter_cache（RLS UPDATE 在 baseline 上 silent fail，violates ADR-018）
+class Like < ApplicationRecord
+  belongs_to :post, counter_cache: true   # ← posts.likes_count 永远停在 0
+end
+# ✅ 正确：干净的 belongs_to，视图层 .count 现算
+class Like < ApplicationRecord
+  belongs_to :post
+end
+# view: <%= post.likes.count %> 个赞
+```
+
+```ruby
+# ❌ 反例 5：业务表手写 increment! / decrement!（同上 RLS silent fail）
+def show
+  @post = Post.find(params[:id])
+  @post.increment!(:views_count)   # ← baseline post → UPDATE 0 rows，永远停在 0
+end
+# ✅ 正确：别存 counter；真要记录访问走独立事件表（INSERT 不受 UPDATE policy 约束）
+def show
+  @post = Post.find(params[:id])
+  PostView.create!(post: @post, user: Current.user, viewed_at: Time.current)
+end
+# 完整说明 + 四部曲：docs/conventions/counter-column.md
 ```
 
 ## 🔎 如何在文档里查东西

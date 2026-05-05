@@ -1,6 +1,6 @@
 ---
 topic: adr-index
-updated_at: 2026-05-03
+updated_at: 2026-05-05
 ---
 
 # Architecture Decision Records (ADR) 索引
@@ -26,6 +26,7 @@ updated_at: 2026-05-03
 | [ADR-015](ADR-015-data-pack-depends-on.md) | Data pack `# depends_on:` 注释声明 + 拓扑排序加载 | ✅ Accepted | 2026-05-03 |
 | [ADR-016](ADR-016-lint-schema-consistency.md) | `validator:lint_schema` — 模型 ↔ 列 ↔ RLS 三路一致性校验 | ✅ Accepted | 2026-05-03 |
 | [ADR-017](ADR-017-database-naming-and-db-init.md) | 数据库命名（`<slug>_development` / `app_user`）+ `bin/db_init` 统一 | ✅ Accepted | 2026-05-03 |
+| [ADR-018](ADR-018-counter-column-and-rls.md) | Counter 字段 + RLS 不兼容；快照表范式（Kangoo 样板） | ✅ Accepted | 2026-05-05 |
 
 ## 新建 ADR 模板
 
