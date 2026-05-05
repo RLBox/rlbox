@@ -29,7 +29,7 @@
 | **前端（Stimulus/Turbo/Icons/ActionCable）** | [docs/conventions/frontend.md](docs/conventions/frontend.md) | P1 |
 | **测试 / rake test / rspec / lint** | [docs/conventions/testing.md](docs/conventions/testing.md) | P1 |
 | **首页是 native-app 风格（双 nav / 无 floating navbar） → spec 怎么适配** | [docs/decisions/ADR-012-app-style-home-spec-adaptation.md](docs/decisions/ADR-012-app-style-home-spec-adaptation.md) | P1 |
-| **Counter 字段（`*_count`）+ RLS silent fail / 为什么不能用 counter_cache / 快照表范式** | [docs/conventions/counter-column.md](docs/conventions/counter-column.md) + [docs/decisions/ADR-018-counter-column-and-rls.md](docs/decisions/ADR-018-counter-column-and-rls.md) | P0 |
+| **Counter 字段（`*_count`）+ RLS silent fail / 为什么不能用 counter_cache / 快照表范式** | [docs/conventions/counter-column.md](docs/conventions/counter-column.md) + [docs/conventions/snapshot-table.md](docs/conventions/snapshot-table.md) + [docs/decisions/ADR-018-counter-column-and-rls.md](docs/decisions/ADR-018-counter-column-and-rls.md) | P0 |
 | **多会话并发 / 多 tab 训练** | [docs/architecture/multi-session.md](docs/architecture/multi-session.md) | P2 |
 | **新分支初始化/部署** | [docs/conventions/new-branch.md](docs/conventions/new-branch.md) | P2 |
 | **环境变量 / 平台约定** | [docs/conventions/environment.md](docs/conventions/environment.md) | P2 |

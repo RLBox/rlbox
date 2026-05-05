@@ -146,5 +146,5 @@ rlbox 这边正式化成模板规约。
 ## 下一步：新业务怎么办？
 
 - **读计数，低并发**：视图层 `.count` 就够，别存。
-- **读计数，高并发 / 要排序 / 要缓存**：用独立快照表（split-by-operation RLS policy 允许 INSERT baseline delta）。范式见 [decisions/ADR-018](../decisions/ADR-018-counter-column-and-rls.md#snapshot-table-pattern)。
+- **读计数，高并发 / 要排序 / 要缓存**：用独立快照表（split-by-operation RLS policy 允许 INSERT baseline delta）。范式见 [snapshot-table.md](snapshot-table.md) + [decisions/ADR-018](../decisions/ADR-018-counter-column-and-rls.md#snapshot-table-pattern)。
 - **真要 counter_cache**：改 RLS UPDATE policy 让 baseline 可被覆写——**一般别这么干**，因为 baseline 是公共数据，一 session 污染，所有 session 遭殃。
