@@ -1,10 +1,11 @@
 ---
 topic: validator-linter
-updated_at: 2026-04-28
+updated_at: 2026-05-05
 status: current
 related:
   - validator-system.md
   - ../conventions/validator-writing.md
+  - ../decisions/ADR-019-validator-title-only.md
 supersedes:
   - ../archive/DATA_VERSION_LINT_GUARANTEE.md
 source_files:
@@ -19,16 +20,19 @@ source_files:
 
 手写 validator 最容易忘记 **`data_version` 过滤**。`Product.where(name: '有机苹果').first` 会穿透当前 session 看到别的 session 的数据，然后 verify 随机成功/失败，调试基本无解。
 
-Linter 做四件事：
+Linter 做五件事：
 
 | 类别 | 等级 | 触发条件 |
 |---|---|---|
 | `data_version` | **HIGH** | `verify` 方法里查业务模型但没带 `data_version:` 条件 |
 | `stale_field` | HIGH | 用到已被删除/重命名的字段（根据配置文件规则） |
+| `deprecated_fields` | **HIGH** | 用到已废弃的 validator-class DSL（默认拦截 `self.description =`，见 ADR-019） |
 | `missing_includes` | MEDIUM | 访问 `model.association.field` 但查询没 `.includes(:association)` |
 | `view_alignment` | MEDIUM | validator 断言的字段在声明的视图文件里找不到 |
 
-其中 `data_version` 检查是**零配置**、**基于运行时元数据**的——Linter 启动时从 `DataVersionable.models` 自动推导业务模型列表，所以新加模型不需要改 Linter 代码。
+其中 `data_version` 和 `deprecated_fields` 两个检查是**零配置**：
+- `data_version` 基于运行时元数据，从 `DataVersionable.models` 自动推导业务模型列表。
+- `deprecated_fields` 内置默认规则列表（`DEFAULT_DEPRECATED_FIELDS`），即使 `config/validator_lint_rules.yml` 缺失也会生效 — 这是防止 AI agent 从记忆 copy-paste 老 DSL 的硬护栏（详见 ADR-019）。
 
 ---
 

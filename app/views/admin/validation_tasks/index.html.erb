@@ -200,10 +200,9 @@
                     </div>
                   </td>
 
-                  <%# Title + Description combined %>
+                  <%# Title（见 ADR-019：description 已废弃，只用 title） %>
                   <td class="px-6 py-4 max-w-md">
                     <div class="text-sm font-semibold text-gray-900 dark:text-gray-100"><%= task[:title] %></div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2"><%= task[:description] %></div>
                     <% if task[:execution_time].present? %>
                       <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         最后执行: <%= time_ago_in_words(task[:execution_time]) %>前

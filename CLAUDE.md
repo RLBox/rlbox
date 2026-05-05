@@ -19,7 +19,7 @@
 | **data pack 加载顺序 / 跨 pack 依赖 / 循环依赖** | [docs/decisions/ADR-015-data-pack-depends-on.md](docs/decisions/ADR-015-data-pack-depends-on.md) | P0 |
 | **schema 对不对齐 / 模型 vs DB 列 vs RLS policy 三路校验** | [docs/decisions/ADR-016-lint-schema-consistency.md](docs/decisions/ADR-016-lint-schema-consistency.md) + `bin/rake validator:lint_schema` | P0 |
 | **某个模型的字段/关联/约束** | [docs/models/](docs/models/)`<model>.md` | P1 |
-| **写 validator 规范** | [docs/conventions/validator-writing.md](docs/conventions/validator-writing.md) | P1 |
+| **写 validator 规范** | [docs/conventions/validator-writing.md](docs/conventions/validator-writing.md) + [docs/decisions/ADR-019-validator-title-only.md](docs/decisions/ADR-019-validator-title-only.md) | P1 |
 | **验证器系统设计（生命周期/数据隔离）** | [docs/architecture/validator-system.md](docs/architecture/validator-system.md) | P1 |
 | **Validator linter（`rake validator:lint`）** | [docs/architecture/validator-linter.md](docs/architecture/validator-linter.md) | P1 |
 | **seed 钩子 / 题目私有预制数据** | [docs/decisions/ADR-005-validator-seed-hook.md](docs/decisions/ADR-005-validator-seed-hook.md) | P1 |
@@ -101,6 +101,26 @@ def show
   PostView.create!(post: @post, user: Current.user, viewed_at: Time.current)
 end
 # 完整说明 + 四部曲：docs/conventions/counter-column.md
+```
+
+```ruby
+# ❌ 反例 6：validator 写 self.description（已废弃，violates ADR-019；rake validator:lint 会 fail）
+class V001FooValidator < BaseValidator
+  self.validator_id = 'v001_foo'
+  self.title        = '给张三加购 2 斤有机苹果'
+  self.description  = '断言：生成 1 条 CartItem(quantity=2)'   # ← 删掉；BaseValidator 无此字段
+  self.timeout_seconds = 120
+end
+# ✅ 正确：只写 title，agent prompt 细节放 prepare 返回的 hint 字段
+class V001FooValidator < BaseValidator
+  self.validator_id     = 'v001_foo'
+  self.title            = '给张三加购 2 斤有机苹果'
+  self.timeout_seconds  = 120
+
+  def prepare
+    { task: @title, hint: '在 /cart 页选商品，点加购 2 次' }
+  end
+end
 ```
 
 ## 🔎 如何在文档里查东西

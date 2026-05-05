@@ -1,15 +1,17 @@
 ---
 topic: validator-writing
-updated_at: 2026-04-28
+updated_at: 2026-05-05
 allow_legacy_models_for_contrast: true
 supersedes: ../archive/VALIDATOR_WRITING_STANDARDS.md
 related:
   - architecture/data-version.md
   - architecture/validator-system.md
+  - architecture/validator-linter.md
   - decisions/ADR-005-validator-seed-hook.md
   - decisions/ADR-006-validators-namespaced-root.md
   - decisions/ADR-007-verify-cross-request-isolation.md
   - decisions/ADR-010-cqrs-verify-cleanup-split.md
+  - decisions/ADR-019-validator-title-only.md
   - decisions/INDEX.md
 ---
 
@@ -17,7 +19,9 @@ related:
 
 > **本文替换** `docs/archive/VALIDATOR_WRITING_STANDARDS.md`（旧文例子都是旅行项目残留）。
 
-## 1. 题目（title + description）
+## 1. 题目（只写 title，不写 description）
+
+> **📛 ADR-019 硬规则**：validator 类里**只声明 `self.title`，禁止 `self.description = ...`**。`rake validator:lint` 会静态扫描并 fail。BaseValidator 已移除 description 字段。
 
 格式：`给/帮 [受益人] + 动词 + 核心目标 + （关键约束）`
 
@@ -30,6 +34,25 @@ related:
 - `CartItem.create(user_id: 1, product_id: 2, quantity: 2)` ← 像代码
 - `在 /cart 页面点击 + 按钮两次` ← 像操作手册
 - `订单 id=5 的 status 改成 paid` ← 暴露内部字段
+
+```ruby
+# ✅ 正确
+class MyValidator < BaseValidator
+  self.validator_id     = 'my_task'
+  self.title            = '给张三加购 2 斤有机苹果'
+  self.timeout_seconds  = 120
+end
+
+# ❌ 错误（linter 会 fail）
+class MyValidator < BaseValidator
+  self.validator_id     = 'my_task'
+  self.title            = '给张三加购 2 斤有机苹果'
+  self.description      = '断言：生成 1 条 CartItem(product=苹果, quantity=2)'  # ← 删掉
+  self.timeout_seconds  = 120
+end
+```
+
+如果 agent prompt 需要比 title 更多的细节，走 `prepare#hint` —— 见 §2。
 
 ## 2. prepare 方法（查 baseline，不写）
 

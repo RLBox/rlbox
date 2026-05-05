@@ -2,14 +2,17 @@
 
 # ValidatorLinter — static code analysis for validator files.
 #
-# Detects four categories of issues:
-#   1. stale_field      — model field referenced in validator no longer exists / has been renamed
-#   2. data_version     — query in verify method is missing data_version isolation filter
-#   3. missing_includes — association accessed without eager-loading (N+1 risk)
-#   4. view_alignment   — field used in validator is not found in the declared view files
+# Detects five categories of issues:
+#   1. stale_field       — model field referenced in validator no longer exists / has been renamed
+#   2. data_version      — query in verify method is missing data_version isolation filter
+#   3. missing_includes  — association accessed without eager-loading (N+1 risk)
+#   4. view_alignment    — field used in validator is not found in the declared view files
+#   5. deprecated_fields — deprecated validator-class DSL (e.g. `self.description =`, see ADR-019)
 #
-# Rules 1, 3, and 4 are configured via config/validator_lint_rules.yml (optional).
+# Rules 1, 3, 4, and 5 are configured via config/validator_lint_rules.yml (optional).
 # Rule 2 (data_version) is driven dynamically from DataVersionable.models.
+# Rule 5 ships with a built-in default (self.description) even if config is absent —
+# this is the hard guard that prevents AI agents from reintroducing the deprecated field.
 #
 # Usage:
 #   linter = ValidatorLinter.new
@@ -60,6 +63,7 @@ class ValidatorLinter
       issues += check_data_version(name, content, file)
       issues += check_missing_includes(name, content, file)
       issues += check_view_alignment(name, content, file)
+      issues += check_deprecated_fields(name, content, file)
     end
     issues
   end
@@ -79,6 +83,7 @@ class ValidatorLinter
     issues += check_data_version(name, content, file)
     issues += check_missing_includes(name, content, file)
     issues += check_view_alignment(name, content, file)
+    issues += check_deprecated_fields(name, content, file)
     issues
   end
 
@@ -248,6 +253,46 @@ class ValidatorLinter
     issues
   end
 
+  # ── Check 5: deprecated validator-class DSL (ADR-019) ─────────────────────
+  #
+  # Scans validator source for patterns like `self.description = ...` that have
+  # been removed from BaseValidator. Ships with a built-in default list so the
+  # guard works even if config/validator_lint_rules.yml is missing — this is the
+  # hard protection against AI agents copy-pasting the old DSL from memory.
+
+  DEFAULT_DEPRECATED_FIELDS = [
+    {
+      'pattern'     => 'self\.description\s*=',
+      'name'        => 'self.description',
+      'severity'    => 'HIGH',
+      'reason'      => 'BaseValidator no longer declares a :description attribute (see ADR-019).',
+      'alternative' => 'Use self.title only. Task descriptions, if needed, belong in comments or docs.'
+    }
+  ].freeze
+
+  def check_deprecated_fields(validator_name, content, _file_path)
+    issues = []
+    configured = @config.dig('rules', 'deprecated_fields') || []
+    rules      = DEFAULT_DEPRECATED_FIELDS + configured
+
+    rules.each do |rule|
+      pattern = Regexp.new(rule['pattern'])
+      next unless content.match?(pattern)
+
+      issues << Issue.new(
+        validator:  validator_name,
+        severity:   rule['severity'] || 'HIGH',
+        category:   'deprecated_fields',
+        message:    "Uses deprecated DSL: #{rule['name']} — #{rule['reason']}",
+        suggestion: rule['alternative'],
+        line:       find_line_number(content, pattern),
+        details:    { pattern: rule['pattern'] }
+      )
+    end
+
+    issues
+  end
+
   # ── Helpers ───────────────────────────────────────────────────────────────
 
   def load_config
@@ -260,7 +305,7 @@ class ValidatorLinter
   end
 
   def default_config
-    { 'rules' => { 'stale_fields' => {}, 'common_associations' => {}, 'view_field_mappings' => {} } }
+    { 'rules' => { 'stale_fields' => {}, 'common_associations' => {}, 'view_field_mappings' => {}, 'deprecated_fields' => [] } }
   end
 
   def find_validator_files

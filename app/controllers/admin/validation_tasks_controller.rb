@@ -14,11 +14,10 @@ class Admin::ValidationTasksController < Admin::BaseController
     # 搜索功能
     @search_query = params[:q].to_s.strip
     filtered_tasks = if @search_query.present?
-      # 模糊搜索：支持 validator_id、title、description
+      # 模糊搜索：支持 validator_id、title（见 ADR-019：description 已废弃，只用 title）
       all_tasks.select do |t|
         t[:validator_id].to_s.downcase.include?(@search_query.downcase) ||
-        t[:title].to_s.downcase.include?(@search_query.downcase) ||
-        t[:description].to_s.downcase.include?(@search_query.downcase)
+        t[:title].to_s.downcase.include?(@search_query.downcase)
       end
     elsif params[:directory].present?
       # 按目录筛选
